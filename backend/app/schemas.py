@@ -124,6 +124,57 @@ class GradeOut(BaseModel):
     using_mock: bool
 
 
+# ---- Exams (Examiner sets + grades) -----------------------------------
+
+class ExamStartIn(BaseModel):
+    subject: str
+    bar: int = 65
+
+
+class ExamQuestion(BaseModel):
+    id: str
+    q: str
+
+
+class ExamStartOut(BaseModel):
+    subject: str
+    professor: str
+    bar: int
+    questions: list[ExamQuestion]
+    provider: str
+    using_mock: bool
+
+
+class ExamAnswer(BaseModel):
+    id: str
+    question: str
+    answer: str = ""
+
+
+class ExamSubmitIn(BaseModel):
+    subject: str
+    professor: str = ""
+    bar: int = 65
+    answers: list[ExamAnswer]
+
+
+class ExamPerQ(BaseModel):
+    id: str
+    score: int
+    passed: bool
+    feedback: str
+
+
+class ExamResultOut(BaseModel):
+    overall: int
+    passed: bool
+    bar: int
+    per_question: list[ExamPerQ]
+    reward: dict | None = None
+    provider: str
+    using_mock: bool
+
+
 # ---- Sandbox ----------------------------------------------------------
 
 class SandboxIn(BaseModel):

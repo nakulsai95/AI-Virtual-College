@@ -53,6 +53,10 @@
     runCode: (sandbox, code) => req('POST', '/api/sandbox/run', { sandbox, code }),
     progress: () => req('GET', '/api/progress'),
     enrollment: () => req('GET', '/api/enrollment'),
+    // Exams: the Examiner sets, then grades, a multi-question exam.
+    examStart: (subject, bar) => req('POST', '/api/exam/start', { subject, bar: bar || 65 }),
+    examSubmit: (payload) => req('POST', '/api/exam/submit', payload),
+    examResults: () => req('GET', '/api/exam/results'),
     // Auth
     token: getToken,
     isAuthed: () => !!getToken(),

@@ -107,9 +107,9 @@ backend/
   app/llm/              Provider-agnostic LLM layer (Claude/OpenAI/Groq/Ollama + demo mock)
   app/state.py          Per-user faculty grades, methodology versions, reward feed
   app/progress.py       The student model (per-concept mastery, XP, streak)
-  app/agents/           Principal (curriculum), Professor (lessons), Examiner (grading)
+  app/agents/           Principal (curriculum), Professor (lessons), Examiner (exams + grading)
   app/sandbox/          Real execution: Python subprocess + SQLite
-  app/routers/          auth · connectors · onboard · faculty · sandbox · progress
+  app/routers/          auth · connectors · onboard · faculty · sandbox · progress · exam
   run.sh, requirements.txt, .env.example
 docs/
   architecture/         System design: component & subsystem specs, architecture map
@@ -133,8 +133,11 @@ The product is taking shape. Done so far, and what's next:
       XP, and streak update as you learn; the My Progress screen reads it live
 - [x] **Accounts + multi-user storage** — register/login (or guest), with each
       user's connector, college, faculty state, and progress isolated in SQLite
+- [x] **Full exams** — the Examiner *sets* a multi-question exam from your
+      subject, grades each answer, and the result feeds the reward loop +
+      your progress; results are saved per user
 - [ ] Hardened sandbox isolation (container/network) for untrusted code
-- [ ] Exams as full assessments (the Examiner sets, not just grades, exams)
+- [ ] Real-time faculty room (agents conversing) + notifications
 
 > ⚠️ The Python sandbox runs code in a subprocess with CPU/memory/time limits —
 > fine for local single-user dev, **not** a hardened multi-tenant boundary. Don't

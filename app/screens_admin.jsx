@@ -3,18 +3,111 @@ const { useState: useStateAd } = React;
 
 /* ---------- Exams & Results ---------- */
 function ExamsScreen({ terms, data }){
-  const passed = data.EXAMS.filter(e=>e.status==='passed').length;
-  const total = data.EXAMS.filter(e=>e.status!=='upcoming').length;
+  const { useState, useEffect } = React;
+  const live = !!window.AULA_API;
+  const [results,setResults] = useState(null);     // live exam results
+  const [phase,setPhase] = useState('idle');        // idle | taking | graded
+  const [exam,setExam] = useState(null);            // {subject,professor,bar,questions}
+  const [answers,setAnswers] = useState({});
+  const [result,setResult] = useState(null);        // submit response
+  const [busy,setBusy] = useState(false);
+  const [err,setErr] = useState('');
+
+  function loadResults(){ if(live) window.AULA_API.examResults().then(r=>setResults(r.results||[])).catch(()=>{}); }
+  useEffect(()=>{ loadResults(); },[]);
+
+  function take(subject){
+    setBusy(true); setErr(''); setResult(null);
+    window.AULA_API.examStart(subject, 65)
+      .then(x=>{ setExam(x); setAnswers({}); setPhase('taking'); })
+      .catch(e=>setErr(String(e.message||e)))
+      .finally(()=>setBusy(false));
+  }
+  function submit(){
+    setBusy(true); setErr('');
+    const payload = { subject:exam.subject, professor:exam.professor, bar:exam.bar,
+      answers: exam.questions.map(q=>({ id:q.id, question:q.q, answer:answers[q.id]||'' })) };
+    window.AULA_API.examSubmit(payload)
+      .then(r=>{ setResult(r); setPhase('graded'); loadResults(); })
+      .catch(e=>setErr(String(e.message||e)))
+      .finally(()=>setBusy(false));
+  }
+  const done = ()=>{ setPhase('idle'); setExam(null); setResult(null); };
+
+  const liveRows = (results||[]).map(r=>({ id:r.id, title:r.subject, subject:r.subject, type:'Exam',
+    when:r.when, score:r.overall, bar:r.bar, status:r.passed?'passed':'failed' }));
+  const rows = liveRows.length ? liveRows : data.EXAMS;
+  const passed = rows.filter(e=>e.status==='passed').length;
+  const total = rows.filter(e=>e.status!=='upcoming').length;
+
   return (
     <div className="screen-pad">
       <div className="row" style={{justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
-        <div><h1 style={{fontSize:26}}>{terms.exam}s & Results</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Graded blind by Rei · pass the bar to advance</p></div>
-        <div className="row" style={{gap:18}}>
-          <div style={{textAlign:'right'}}><div style={{fontFamily:'var(--font-d)',fontWeight:700,fontSize:22}}>{passed}/{total}</div><div className="faint mono" style={{fontSize:11}}>PASSED</div></div>
-        </div>
+        <div><h1 style={{fontSize:26}}>{terms.exam}s & Results</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Set &amp; graded by Rei the Examiner · pass the bar to advance</p></div>
+        <div style={{textAlign:'right'}}><div style={{fontFamily:'var(--font-d)',fontWeight:700,fontSize:22}}>{passed}/{total}</div><div className="faint mono" style={{fontSize:11}}>PASSED</div></div>
       </div>
+
+      {/* Take an exam */}
+      {live && (
+        <div className="card" style={{marginBottom:22}}>
+          {phase==='idle' && (
+            <React.Fragment>
+              <div className="eyebrow" style={{marginBottom:12}}>Sit an exam · the Examiner writes it from your {terms.semester.toLowerCase()}</div>
+              <div className="row" style={{gap:8,flexWrap:'wrap'}}>
+                {data.SUBJECTS.map(s=>(
+                  <button key={s.id} className="btn ghost" onClick={()=>take(s.title)} disabled={busy}>{busy?'…':'Take · '+s.title}</button>
+                ))}
+              </div>
+              {err && <p className="muted" style={{fontSize:12.5,color:'var(--coral)',marginTop:10}}>{err}</p>}
+            </React.Fragment>
+          )}
+
+          {phase==='taking' && exam && (
+            <React.Fragment>
+              <div className="row" style={{justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
+                <b style={{fontFamily:'var(--font-d)',fontSize:16}}>{exam.subject} · {terms.exam}</b>
+                <span className="badge mono">bar {exam.bar} · {exam.questions.length} questions</span>
+              </div>
+              {exam.questions.map((q,i)=>(
+                <div key={q.id} style={{marginBottom:16}}>
+                  <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:14.5,marginBottom:8}}>{i+1}. {q.q}</div>
+                  <textarea className="conn-input" rows={3} value={answers[q.id]||''} onChange={e=>setAnswers(a=>({...a,[q.id]:e.target.value}))} placeholder="Your answer…" />
+                </div>
+              ))}
+              {err && <p className="muted" style={{fontSize:12.5,color:'var(--coral)',marginBottom:10}}>{err}</p>}
+              <div className="row" style={{gap:10}}>
+                <button className="btn ghost" onClick={done} disabled={busy}>Cancel</button>
+                <button className="btn primary" onClick={submit} disabled={busy || exam.questions.some(q=>!(answers[q.id]||'').trim())}>{busy?'Grading…':'Submit exam'}</button>
+              </div>
+            </React.Fragment>
+          )}
+
+          {phase==='graded' && result && (
+            <React.Fragment>
+              <div className="row" style={{gap:12,marginBottom:12,alignItems:'center',flexWrap:'wrap'}}>
+                <span style={{fontFamily:'var(--font-d)',fontWeight:700,fontSize:30,color:result.passed?'var(--mint)':'var(--coral)'}}>{result.overall}%</span>
+                <span className={"badge "+(result.passed?'mint':'coral')}>{result.passed?'passed':'below bar'} · bar {result.bar}</span>
+                {result.reward && <span className={"badge mono "+(result.reward.delta>=0?'mint':'coral')}>{result.reward.delta>=0?'+':''}{result.reward.delta} to {exam.professor||'professor'}</span>}
+                {result.reward && result.reward.methodology_changed && <span className="badge accent mono">Provost rewrote methodology · v{result.reward.professor.version}</span>}
+              </div>
+              <p className="faint mono" style={{fontSize:11,marginBottom:14}}>The reward landed on your teacher — your standing never drops. {result.passed?'':'Re-sit when ready, no penalty to you.'}</p>
+              {result.per_question.map((p,i)=>(
+                <div key={p.id} className="exam-row" style={{marginBottom:8}}>
+                  <span className={"badge "+(p.passed?'mint':'coral')}>{p.score}%</span>
+                  <div style={{flex:1,minWidth:0}}><div className="faint mono" style={{fontSize:11}}>Q{i+1}</div><p className="muted" style={{fontSize:13}}>{p.feedback}</p></div>
+                </div>
+              ))}
+              <button className="btn primary" style={{marginTop:14}} onClick={done}>Done</button>
+            </React.Fragment>
+          )}
+        </div>
+      )}
+
+      {/* Results history */}
+      <div className="eyebrow" style={{marginBottom:12}}>Your results</div>
       <div className="col" style={{gap:10}}>
-        {data.EXAMS.map(e=>(
+        {rows.length===0 && <p className="muted" style={{fontSize:13.5}}>No exams yet — sit one above.</p>}
+        {rows.map(e=>(
           <div key={e.id} className={"exam-row"+(e.status==='failed'?' failed':'')}>
             <div className="ex-when mono">{e.when}</div>
             <div style={{flex:1,minWidth:0}}>
@@ -37,16 +130,6 @@ function ExamsScreen({ terms, data }){
             )}
           </div>
         ))}
-      </div>
-      <div className="card coral-note" style={{marginTop:18}}>
-        <div className="row" style={{gap:12,alignItems:'flex-start'}}>
-          <span className="dot" style={{background:'var(--coral)',marginTop:6}}/>
-          <div>
-            <b style={{fontFamily:'var(--font-d)',fontSize:14.5}}>SQL & queries — failed at 58% (bar 65)</b>
-            <p className="muted" style={{fontSize:13.5,marginTop:6}}>You re-enrol this unit — <b style={{color:'var(--ink)'}}>no penalty to you</b>. {terms.professor} Kenji took the −10 reward; the Provost rewrote his methodology (v3 → v4) to teach JOINs with worked examples first. Try again when ready.</p>
-            <button className="btn primary" style={{marginTop:12}}>Re-enrol the unit →</button>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -17,6 +17,39 @@ honest. Return a single JSON object, no markdown:
 {"score": <0-100 integer>, "feedback": "<2-3 sentences: what was right, what to improve>"}
 Output ONLY the JSON object."""
 
+_EXAM_SYSTEM = """You are the Examiner at AULA. Write {n} short exam questions
+that test real understanding of the subject's concepts (not trivia). Return a
+single JSON object, no markdown:
+{{"questions": [{{"q": "<question>"}}]}}
+Output ONLY the JSON object."""
+
+
+def build_exam(provider, *, subject: str, concepts: list[str], n: int = 3) -> list[dict]:
+    """The Examiner sets an exam from the subject's concepts."""
+    concepts = [c for c in (concepts or []) if c] or [subject]
+    if getattr(provider, "id", "") == "mock":
+        return _exam_fallback(concepts, n)
+    try:
+        user = f"Subject: {subject}\nConcepts: {', '.join(concepts)}"
+        raw = provider.complete(_EXAM_SYSTEM.format(n=n), [{"role": "user", "content": user}],
+                                max_tokens=1200, json=True)
+        data = _parse(raw)
+        out = []
+        for i, q in enumerate(data.get("questions", [])[:n]):
+            text = q.get("q") or q.get("question") if isinstance(q, dict) else str(q)
+            if text:
+                out.append({"id": f"q{i+1}", "q": text})
+        if out:
+            return out
+    except Exception:  # noqa: BLE001
+        pass
+    return _exam_fallback(concepts, n)
+
+
+def _exam_fallback(concepts: list[str], n: int) -> list[dict]:
+    return [{"id": f"q{i+1}", "q": f"Explain “{c}” in your own words, with a concrete example."}
+            for i, c in enumerate(concepts[:n])]
+
 
 def grade(provider: LLMProvider, *, question: str, answer: str, bar: int = 70) -> dict:
     answer = (answer or "").strip()

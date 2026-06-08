@@ -6,7 +6,8 @@ import json
 from .db import connect
 
 _TABLES = {"connector": "connectors", "enrollment": "enrollments",
-           "faculty": "faculty_state", "student": "student_model"}
+           "faculty": "faculty_state", "student": "student_model",
+           "exams": "exam_results"}
 
 
 def _get(kind: str, user_id: int) -> dict | None:
@@ -50,3 +51,6 @@ def set_faculty(uid: int, v):  _set("faculty", uid, v)
 
 def get_student(uid: int):     return _get("student", uid)
 def set_student(uid: int, v):  _set("student", uid, v)
+
+def get_exams(uid: int):       return _get("exams", uid) or {"results": []}
+def set_exams(uid: int, v):    _set("exams", uid, v)
