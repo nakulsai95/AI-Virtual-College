@@ -62,6 +62,14 @@
     advanceChannel: () => req('POST', '/api/channel/advance'),
     notifications: () => req('GET', '/api/notifications'),
     markSeen: () => req('POST', '/api/notifications/seen'),
+    // Library / content knowledge base + grounded retrieval
+    library: () => req('GET', '/api/library'),
+    materialsSearch: (query, n) => req('POST', '/api/materials/search', { query, n: n || 8 }),
+    // Search (retrieval) connector
+    searchProviders: () => req('GET', '/api/connectors/search/providers'),
+    getSearchConnector: () => req('GET', '/api/connectors/search'),
+    saveSearchConnector: (provider, api_key) => req('PUT', '/api/connectors/search', { provider, api_key }),
+    clearSearchConnector: () => req('DELETE', '/api/connectors/search'),
     // Auth
     token: getToken,
     isAuthed: () => !!getToken(),
@@ -95,6 +103,9 @@
         title: m.title,
         status: j === 0 ? 'active' : 'locked',
         exam: 'pending',
+        objectives: m.objectives || [],
+        assignment: m.assignment || null,
+        reading: m.reading || [],
       })),
     }));
 
@@ -111,6 +122,8 @@
 
     if (subjects.length) D.SUBJECTS = subjects;
     if (faculty.length) D.FACULTY = faculty;
+    D.MILESTONES = curriculum.milestones || [];
+    D.GROUNDED = !!curriculum.grounded;
     if (window.AULA_DATA.STUDENT) {
       D.STUDENT.mission = curriculum.mission || D.STUDENT.mission;
       D.STUDENT.weeks = curriculum.weeks || D.STUDENT.weeks;

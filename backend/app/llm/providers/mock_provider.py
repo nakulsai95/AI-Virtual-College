@@ -79,15 +79,17 @@ def _clean_goal(text: str) -> str:
 
 
 # --- naive topic inference, just enough to feel responsive ----------------
+# Order matters: more specific intents (ML, SQL, React) are checked before the
+# generic "python" bucket so e.g. "machine learning with python" maps to ML.
 _TOPIC_MAP = [
-    (("python", "backend", "api", "django", "flask", "fastapi"),
-     [("APIs & Services", "py"), ("Databases", "sql")]),
-    (("react", "frontend", "javascript", "typescript", "web"),
-     [("React & Components", "git"), ("State & Data Fetching", "git")]),
-    (("sql", "database", "data engineering", "data engineer"),
-     [("Relational Modelling", "sql"), ("Querying & Performance", "sql")]),
     (("machine learning", "ml", "data science", "ai", "neural", "pandas"),
      [("Foundations of ML", "jupyter"), ("Models & Evaluation", "jupyter")]),
+    (("sql", "database", "data engineering", "data engineer"),
+     [("Relational Modelling", "sql"), ("Querying & Performance", "sql")]),
+    (("react", "frontend", "javascript", "typescript"),
+     [("React & Components", "git"), ("State & Data Fetching", "git")]),
+    (("python", "backend", "api", "django", "flask", "fastapi"),
+     [("APIs & Services", "python"), ("Databases", "sql")]),
 ]
 
 
@@ -102,17 +104,28 @@ def _demo_curriculum_json(goal: str) -> str:
     subjects_seed = _subjects_for(goal.lower())
     subjects = []
     for i, (title, sandbox) in enumerate(subjects_seed):
+        stages = ["foundations", "core techniques", "building real things", "testing & mastery"]
+        modules = []
+        for j, stage in enumerate(stages):
+            modules.append({
+                "id": f"s{i+1}m{j+1}",
+                "title": f"{title}: {stage}",
+                "objectives": [
+                    f"Explain the key ideas of {title.lower()} {stage}",
+                    f"Apply {stage} to a small, concrete problem",
+                ],
+                "assignment": {
+                    "title": f"{stage.title()} task",
+                    "prompt": f"Build a small example demonstrating {title.lower()} {stage}.",
+                    "sandbox": sandbox,
+                },
+            })
         subjects.append({
             "id": f"s{i+1}",
             "title": title,
             "professor": ["Mei", "Kenji", "Aria", "Ravi"][i % 4],
             "sandboxes": [sandbox, "web-search"],
-            "modules": [
-                {"id": f"s{i+1}m1", "title": f"{title}: foundations"},
-                {"id": f"s{i+1}m2", "title": f"{title}: core techniques"},
-                {"id": f"s{i+1}m3", "title": f"{title}: building real things"},
-                {"id": f"s{i+1}m4", "title": f"{title}: testing & mastery"},
-            ],
+            "modules": modules,
         })
     data = {
         "mission": goal.strip()[:120] or "Reach your learning goal",
@@ -131,6 +144,12 @@ def _demo_curriculum_json(goal: str) -> str:
         ] + [
             {"id": "examiner", "role": "examiner", "name": "Rei", "model": "demo"},
             {"id": "guide", "role": "guide", "name": "Yuki", "model": "demo"},
+        ],
+        "milestones": [
+            {"week": 2, "title": "Foundations in place", "detail": "Comfortable with the core ideas."},
+            {"week": 6, "title": "Building real things", "detail": "Shipping small projects in the sandbox."},
+            {"week": 10, "title": "Assessed & solid", "detail": "Passing unit exams across subjects."},
+            {"week": 12, "title": "Goal reached", "detail": "Ready for the real-world version of your goal."},
         ],
     }
     return json.dumps(data)

@@ -5,7 +5,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from .. import progress, repo
+from .. import progress, repo, retrieval
 from ..agents import principal
 from ..agents.principal import SANDBOXES
 from ..auth import CurrentUser
@@ -36,14 +36,19 @@ def onboard(body: OnboardIn, user=CurrentUser):
         raise HTTPException(400, "Tell the Principal what you want to learn.")
     uid = user["id"]
 
+    # Ground the plan in real materials (open sources + arXiv + optional web search).
+    materials = retrieval.gather(body.goal, search_config=repo.get_search(uid), n=10)
+    if materials:
+        repo.add_materials(uid, body.goal, materials)
+
     provider = build_provider(repo.get_connector(uid))
     try:
-        curriculum = principal.design_curriculum(provider, body.goal, body.level)
+        curriculum = principal.design_curriculum(provider, body.goal, body.level, materials)
         using_mock = provider.id == "mock"
     except Exception as e:  # noqa: BLE001 - never fail onboarding; degrade to demo
         log.warning("Principal failed on %s (%s); falling back to demo", provider.id, e)
         mock = MockProvider()
-        curriculum = principal.design_curriculum(mock, body.goal, body.level)
+        curriculum = principal.design_curriculum(mock, body.goal, body.level, materials)
         provider, using_mock = mock, True
 
     cur_dict = curriculum.model_dump()

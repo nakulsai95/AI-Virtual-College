@@ -123,6 +123,20 @@ function CurriculumScreen({ terms, nav, data }){
         <span className="faint mono" style={{fontSize:11}}><span className="dot" style={{background:'var(--coral)',display:'inline-block',marginRight:6}} />re-enrol</span>
       </div>
 
+      {data.MILESTONES && data.MILESTONES.length>0 && (
+        <div className="card" style={{marginBottom:18}}>
+          <div className="eyebrow" style={{marginBottom:12}}>Milestones · checkpoints on the way to your goal</div>
+          <div className="milestones">
+            {data.MILESTONES.map((ms,i)=>(
+              <div key={i} className="ms-item">
+                <span className="ms-week mono">wk {ms.week}</span>
+                <div><b style={{fontFamily:'var(--font-d)',fontSize:13.5}}>{ms.title}</b><div className="muted" style={{fontSize:12.5}}>{ms.detail}</div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {data.SUBJECTS.map(s=>(
         <div key={s.id} className="subj-card">
           <div className="sc-top">
@@ -133,12 +147,28 @@ function CurriculumScreen({ terms, nav, data }){
           <div className="col" style={{gap:0}}>
             {s.modules.map((m,i)=>{
               const eb=examBadge[m.exam]||['','pending'];
+              const hasDetail = (m.objectives&&m.objectives.length)||m.assignment||(m.reading&&m.reading.length);
               return (
-                <div key={m.id} className={"curr-mod "+m.status}>
-                  <span className={"cm-ico "+m.status}>{statusIcon[m.status]}</span>
-                  <span className="cm-n mono">{terms.module} {i+1}</span>
-                  <span className="cm-title">{m.title}</span>
-                  <span className={"badge "+eb[0]} style={{marginLeft:'auto'}}>{terms.exam}: {eb[1]}</span>
+                <div key={m.id}>
+                  <div className={"curr-mod "+m.status}>
+                    <span className={"cm-ico "+m.status}>{statusIcon[m.status]}</span>
+                    <span className="cm-n mono">{terms.module} {i+1}</span>
+                    <span className="cm-title">{m.title}</span>
+                    <span className={"badge "+eb[0]} style={{marginLeft:'auto'}}>{terms.exam}: {eb[1]}</span>
+                  </div>
+                  {hasDetail && (
+                    <div className="cm-detail">
+                      {m.objectives&&m.objectives.length>0 && (
+                        <ul className="cm-obj">{m.objectives.map((o,k)=><li key={k}>{o}</li>)}</ul>
+                      )}
+                      <div className="row" style={{gap:8,flexWrap:'wrap',marginTop:6}}>
+                        {m.assignment && <span className="badge accent" title={m.assignment.prompt}>⛏ {m.assignment.title} · {m.assignment.sandbox}</span>}
+                        {(m.reading||[]).map((r,k)=>(
+                          <a key={k} className="cm-read" href={r.url} target="_blank" rel="noreferrer">📖 {r.title.length>34?r.title.slice(0,34)+'…':r.title}</a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -419,37 +449,76 @@ function roleTermFor(role, terms){
   return ({ professor:terms.professor, principal:terms.principal, provost:'Provost', examiner:'Examiner', guide:terms.guide, me:'you' })[role] || role;
 }
 
-/* ---------- Library ---------- */
+/* ---------- Library / content knowledge base ---------- */
 function LibraryScreen({ terms, nav, data }){
+  const live = !!window.AULA_API;
+  const [kb,setKb] = useStateL(null);            // {materials, lessons}
+  const [tab,setTab] = useStateL('lessons');
   const [q,setQ] = useStateL('');
-  const [subj,setSubj] = useStateL('all');
-  const subjects = ['all', ...new Set(data.LIBRARY.map(l=>l.subject))];
-  const items = data.LIBRARY.filter(l=>
-    (subj==='all'||l.subject===subj) &&
-    (l.title.toLowerCase().includes(q.toLowerCase())||l.author.toLowerCase().includes(q.toLowerCase())));
+  const [busy,setBusy] = useStateL(false);
+
+  function load(){ if(live) window.AULA_API.library().then(setKb).catch(()=>{}); }
+  useEffectL(()=>{ load(); },[]);
+
+  function search(){
+    if(!q.trim()) return;
+    setBusy(true);
+    window.AULA_API.materialsSearch(q.trim(), 8).then(()=>{ setTab('materials'); load(); }).finally(()=>setBusy(false));
+  }
+
+  const lessons = (kb && kb.lessons && kb.lessons.length)
+    ? kb.lessons
+    : data.LIBRARY.map(l=>({ id:l.id, title:l.title, subject:l.subject, author:l.author, read:l.read }));
+  const materials = (kb && kb.materials) || [];
+  const ql = q.toLowerCase();
+  const fLessons = lessons.filter(l=>!ql || (l.title+' '+(l.author||'')+' '+(l.subject||'')).toLowerCase().includes(ql));
+  const fMaterials = materials.filter(m=>!ql || (m.title+' '+(m.source||'')).toLowerCase().includes(ql));
+  const kindIcon = { paper:'📄', course:'🎓', book:'📚', docs:'📘', web:'🔗' };
+
   return (
     <div className="screen-pad wide">
-      <div className="row" style={{justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:12}}>
-        <div><h1 style={{fontSize:26}}>Library</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Every lesson your faculty has authored · {data.LIBRARY.length} entries</p></div>
-        <input className="lib-search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Search lessons…" />
+      <div className="row" style={{justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:12}}>
+        <div><h1 style={{fontSize:26}}>Library</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Authored lessons + the materials grounding your plan</p></div>
+        <div className="row" style={{gap:8}}>
+          <input className="lib-search" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&(tab==='materials'?search():null)} placeholder={tab==='materials'?'Search & retrieve materials…':'Search lessons…'} />
+          {live && tab==='materials' && <button className="btn ghost" onClick={search} disabled={busy||!q.trim()}>{busy?'…':'Find'}</button>}
+        </div>
       </div>
-      <div className="row" style={{gap:8,marginBottom:18,flexWrap:'wrap'}}>
-        {subjects.map(s=><button key={s} className={"ex-chip"+(subj===s?' on-chip':'')} onClick={()=>setSubj(s)} style={subj===s?{color:'var(--accent)',borderColor:'var(--accent-line)',background:'var(--accent-soft)'}:{}}>{s==='all'?'All subjects':s}</button>)}
+
+      <div className="seg" style={{marginBottom:18,maxWidth:320}}>
+        <button className={tab==='lessons'?'on':''} onClick={()=>setTab('lessons')}>Lessons{kb?` · ${lessons.length}`:''}</button>
+        <button className={tab==='materials'?'on':''} onClick={()=>setTab('materials')}>Materials{kb?` · ${materials.length}`:''}</button>
       </div>
-      <div className="lib-grid">
-        {items.map(l=>(
-          <div key={l.id} className={"lib-card"+(l.state==='locked'?' locked':'')} onClick={()=>l.state!=='locked'&&nav('lesson')}>
-            <div className="row" style={{justifyContent:'space-between',marginBottom:12}}>
-              <span className="badge mono">{l.tag}</span>
-              {l.state==='new' && <span className="badge accent">new</span>}
-              {l.state==='unread' && <span className="dot" style={{background:'var(--accent)'}} />}
-              {l.state==='locked' && <span className="badge">🔒</span>}
+
+      {tab==='lessons' && (
+        <div className="lib-grid">
+          {fLessons.length===0 && <p className="muted" style={{fontSize:13.5}}>No lessons yet — ask the Personal Guide a question and your professor will author one.</p>}
+          {fLessons.map((l,i)=>(
+            <div key={l.id||i} className="lib-card" onClick={()=>nav('lesson')}>
+              <div className="row" style={{justifyContent:'space-between',marginBottom:12}}><span className="badge mono">{l.subject||'lesson'}</span></div>
+              <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:15,lineHeight:1.25,marginBottom:10}}>{l.title}</div>
+              <div className="row" style={{gap:8}}><Avatar name={l.author||'?'} hue="#f5a623" size={22}/><span className="faint mono" style={{fontSize:11}}>{l.author||'faculty'}{l.read?' · '+l.read:''}</span></div>
             </div>
-            <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:15,lineHeight:1.25,marginBottom:10}}>{l.title}</div>
-            <div className="row" style={{gap:8}}><Avatar name={l.author} hue={l.author==='Mei'?'#f5a623':'#3b82f6'} size={22}/><span className="faint mono" style={{fontSize:11}}>{l.author} · {l.read}</span></div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {tab==='materials' && (
+        <div className="lib-grid">
+          {fMaterials.length===0 && <p className="muted" style={{fontSize:13.5}}>{live?'No materials yet — search a topic above to retrieve open sources.':'Connect the backend to retrieve grounded materials.'}</p>}
+          {fMaterials.map((m,i)=>(
+            <a key={m.id||i} className="lib-card" href={m.url} target="_blank" rel="noreferrer" style={{textDecoration:'none',color:'inherit',display:'block'}}>
+              <div className="row" style={{justifyContent:'space-between',marginBottom:12}}>
+                <span className="badge mono">{kindIcon[m.kind]||'🔗'} {m.kind}</span>
+                <span className="faint mono" style={{fontSize:10}}>{m.source}</span>
+              </div>
+              <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:14.5,lineHeight:1.25,marginBottom:8}}>{m.title}</div>
+              {m.snippet && <p className="muted" style={{fontSize:12,marginBottom:8}}>{m.snippet.length>90?m.snippet.slice(0,90)+'…':m.snippet}</p>}
+              <div className="faint mono" style={{fontSize:10}}>{(m.url||'').replace(/^https?:\/\//,'').split('/')[0]}</div>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

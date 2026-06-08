@@ -6,9 +6,13 @@ from fastapi import APIRouter, HTTPException
 from .. import repo
 from ..auth import CurrentUser
 from ..llm import PROVIDER_SPECS, build_provider, provider_spec
-from ..schemas import ConnectorIn, ConnectorStatus
+from ..schemas import ConnectorIn, ConnectorStatus, SearchConnectorIn
 
 router = APIRouter(prefix="/api/connectors", tags=["connectors"])
+
+SEARCH_PROVIDERS = [
+    {"id": "tavily", "name": "Tavily", "key_url": "https://app.tavily.com/", "key_label": "TAVILY_API_KEY"},
+]
 
 
 def _status(uid: int) -> ConnectorStatus:
@@ -69,3 +73,30 @@ def test_connector(body: ConnectorIn):
 def clear_active(user=CurrentUser):
     repo.set_connector(user["id"], None)
     return _status(user["id"])
+
+
+# --- Search connector (grounds the curriculum in real web results) ------
+
+@router.get("/search/providers")
+def search_providers():
+    return {"providers": SEARCH_PROVIDERS}
+
+
+@router.get("/search")
+def get_search(user=CurrentUser):
+    cfg = repo.get_search(user["id"]) or {}
+    return {"provider": cfg.get("provider", ""), "connected": bool(cfg.get("api_key"))}
+
+
+@router.put("/search")
+def set_search(body: SearchConnectorIn, user=CurrentUser):
+    if not body.api_key:
+        raise HTTPException(400, "A search API key is required.")
+    repo.set_search(user["id"], {"provider": body.provider, "api_key": body.api_key})
+    return {"provider": body.provider, "connected": True}
+
+
+@router.delete("/search")
+def clear_search(user=CurrentUser):
+    repo.set_search(user["id"], None)
+    return {"provider": "", "connected": False}

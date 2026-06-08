@@ -15,7 +15,7 @@ from . import __version__, repo
 from .config import cors_origins, seed_connector
 from .db import GUEST_ID, init_db
 from .routers import (
-    auth, channel, connectors, exams, faculty, onboard, progress, sandbox,
+    auth, channel, connectors, exams, faculty, library, onboard, progress, sandbox,
 )
 
 app = FastAPI(title="AULA — Virtual AI College", version=__version__)
@@ -36,6 +36,7 @@ app.include_router(sandbox.router)
 app.include_router(progress.router)
 app.include_router(exams.router)
 app.include_router(channel.router)
+app.include_router(library.router)
 
 
 @app.on_event("startup")

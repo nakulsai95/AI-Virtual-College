@@ -67,9 +67,37 @@ demo mode and still works end to end.
 ### Accounts & persistence
 
 The backend is **multi-user**. Create an account (or "continue as guest") from
-the sign-in dialog — your enrollment, faculty/reward state, and progress are
-saved per user in SQLite (`backend/aula.db`, git-ignored) and restored on your
-next visit. Each user's connector + key, college, and progress are isolated.
+the sign-in dialog — your enrollment, faculty/reward state, progress, library,
+and connectors are saved per user and restored on your next visit.
+
+Storage is **SQLAlchemy-backed and Postgres-ready**: it defaults to SQLite
+(`backend/aula.db`, git-ignored). For production, point it at Postgres — no code
+change:
+
+```bash
+export DATABASE_URL="postgresql+psycopg://user:pass@host:5432/aula"
+pip install "psycopg[binary]"   # then run as usual
+```
+
+### Grounded plans + knowledge base
+
+When you say *"I want to learn X"*, the Principal doesn't invent the plan from
+thin air — a **retrieval step** first gathers real materials, and the plan is
+then **synthesised by the LLM you connected**, with:
+
+- **Per-module learning objectives**, a hands-on **assignment** (wired to the
+  right sandbox), and a **reading list** cited from the retrieved sources
+- A **milestone timeline** across the weeks
+
+Retrieval layers (all degrade gracefully, never scrape copyrighted/paywalled
+content — we link and cite):
+- **Open sources** (always on, no key): MIT OCW, OpenStax, official docs, arXiv
+- **arXiv API** for open-access papers
+- **Search connector** (optional, your key): add **Tavily** in Connections for
+  broader web/university/syllabus retrieval
+
+Everything retrieved lands in your **Library** (a content knowledge base), along
+with every lesson your faculty authors — both searchable and reusable.
 
 ## Bring your own model (connectors)
 
@@ -102,9 +130,10 @@ app/
   app.css, screens.css  Styling
 backend/
   app/main.py           FastAPI app (CORS + routers, DB init on startup)
-  app/db.py, repo.py    SQLite persistence + per-user state access
+  app/db.py, repo.py    SQLAlchemy persistence (Postgres-ready) + per-user state + content KB
   app/auth.py           Accounts (PBKDF2 + bearer tokens), guest fallback
   app/llm/              Provider-agnostic LLM layer (Claude/OpenAI/Groq/Ollama + demo mock)
+  app/retrieval/        Grounding: open-source index, arXiv, Tavily web search
   app/state.py          Per-user faculty grades, methodology versions, reward feed
   app/progress.py       The student model (per-concept mastery, XP, streak)
   app/agents/           Principal, Professor, Examiner, Faculty Room (agent chat)
@@ -142,8 +171,15 @@ The product is taking shape. Done so far, and what's next:
 - [x] **Hardened sandbox** — autodetects an OS sandbox (bubblewrap / firejail /
       nsjail) for real fs+net isolation when present; always layers a network
       block, rlimits (CPU/mem/file), and a wall-clock timeout (see caveat below)
+- [x] **Grounded curriculum** — retrieval (open sources + arXiv + optional web
+      search) feeds real materials to the Principal, synthesised by your chosen LLM
+- [x] **Structured artifacts** — per-module objectives, hands-on assignments, and
+      a milestone timeline, with cited reading lists
+- [x] **Content knowledge base** — retrieved materials + authored lessons stored
+      and searchable in the Library
+- [x] **Postgres-ready storage** — SQLAlchemy, switch via `DATABASE_URL` (SQLite default)
 - [ ] Streaming agent responses (token-by-token) in the UI
-- [ ] Deploy recipe (Docker compose: backend behind a real sandbox host)
+- [ ] Deploy recipe (Docker compose: Postgres + backend behind a real sandbox host)
 
 > ⚠️ **Sandbox scope.** The Python sandbox wraps execution in an OS sandbox
 > (bubblewrap / firejail / nsjail) when one is installed, giving real filesystem

@@ -42,6 +42,7 @@ def author_lesson(body: LessonIn, user=CurrentUser):
 
     state.log_lesson(name, lesson["title"])
     state.save(uid)
+    repo.add_library_lesson(uid, body.subject, lesson["title"], lesson)  # to the library KB
 
     # The learner read/received a lesson — nudge their own progress.
     student = repo.get_student(uid)

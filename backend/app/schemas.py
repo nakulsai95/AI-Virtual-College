@@ -24,6 +24,18 @@ class AuthOut(BaseModel):
     token: str
 
 
+# ---- Search / retrieval -----------------------------------------------
+
+class SearchConnectorIn(BaseModel):
+    provider: str = "tavily"
+    api_key: str = ""
+
+
+class SearchIn(BaseModel):
+    query: str
+    n: int = 8
+
+
 # ---- Connectors --------------------------------------------------------
 
 class ConnectorIn(BaseModel):
@@ -44,9 +56,24 @@ class ConnectorStatus(BaseModel):
 
 # ---- Curriculum (Principal output) -------------------------------------
 
+class Reading(BaseModel):
+    title: str
+    url: str = ""
+    kind: str = "web"
+
+
+class Assignment(BaseModel):
+    title: str = ""
+    prompt: str = ""
+    sandbox: str = "python"
+
+
 class Module(BaseModel):
     id: str
     title: str
+    objectives: list[str] = Field(default_factory=list)
+    assignment: Assignment | None = None
+    reading: list[Reading] = Field(default_factory=list)
 
 
 class Subject(BaseModel):
@@ -56,6 +83,12 @@ class Subject(BaseModel):
     # Topic/semester-driven sandboxes mounted for this subject.
     sandboxes: list[str] = Field(default_factory=list)
     modules: list[Module] = Field(default_factory=list)
+
+
+class Milestone(BaseModel):
+    week: int = 1
+    title: str
+    detail: str = ""
 
 
 class FacultyMember(BaseModel):
@@ -73,6 +106,8 @@ class Curriculum(BaseModel):
     summary: str = ""
     subjects: list[Subject] = Field(default_factory=list)
     faculty: list[FacultyMember] = Field(default_factory=list)
+    milestones: list[Milestone] = Field(default_factory=list)
+    grounded: bool = False
 
 
 class OnboardIn(BaseModel):

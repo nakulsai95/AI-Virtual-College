@@ -287,6 +287,53 @@ function CommandCenter({ terms, data }){
   );
 }
 
+/* Search (retrieval) connector — grounds the curriculum in real web results. */
+function SearchConnectorCard(){
+  const { useState, useEffect } = React;
+  const [status,setStatus] = useState(null);
+  const [providers,setProviders] = useState([]);
+  const [key,setKey] = useState('');
+  const [busy,setBusy] = useState(false);
+  const [msg,setMsg] = useState('');
+  useEffect(()=>{
+    if(!window.AULA_API) return;
+    window.AULA_API.searchProviders().then(p=>setProviders(p.providers)).catch(()=>{});
+    window.AULA_API.getSearchConnector().then(setStatus).catch(()=>{});
+  },[]);
+  const prov = providers[0];
+  function connect(){
+    setBusy(true); setMsg('');
+    window.AULA_API.saveSearchConnector(prov.id, key)
+      .then(s=>{ setStatus(s); setKey(''); setMsg('Connected — the Principal will now ground plans with web search too.'); })
+      .catch(e=>setMsg(String(e.message||e))).finally(()=>setBusy(false));
+  }
+  function disconnect(){ setBusy(true); window.AULA_API.clearSearchConnector().then(setStatus).finally(()=>setBusy(false)); }
+  return (
+    <div className="card" style={{marginBottom:26}}>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:6,gap:12,flexWrap:'wrap'}}>
+        <div>
+          <div className="eyebrow" style={{marginBottom:6}}>Search connector · grounds plans in real web results</div>
+          <b style={{fontFamily:'var(--font-d)',fontSize:15}}>{status&&status.connected?('Connected · '+status.provider):'Not connected'}</b>
+        </div>
+        {status&&status.connected && <button className="btn ghost" onClick={disconnect} disabled={busy}>Disconnect</button>}
+      </div>
+      <p className="muted" style={{fontSize:12.5,marginBottom:12}}>Optional. Open sources (MIT OCW, OpenStax, arXiv) are always used to ground your curriculum; add a web-search key for broader, cited retrieval. Your key stays on your backend.</p>
+      {!(status&&status.connected) && prov && (
+        <React.Fragment>
+          <label className="conn-label">{prov.name} API key</label>
+          <input className="conn-input mono" type="password" value={key} onChange={e=>setKey(e.target.value)} placeholder={prov.key_label} />
+          <div className="row" style={{gap:10,marginTop:12,alignItems:'center'}}>
+            <a href={prov.key_url} target="_blank" rel="noreferrer" className="faint mono" style={{fontSize:11}}>get a key ↗</a>
+            <div style={{flex:1}}/>
+            <button className="btn primary" onClick={connect} disabled={busy||!key.trim()}>Connect</button>
+          </div>
+        </React.Fragment>
+      )}
+      {msg && <p className="muted" style={{fontSize:12.5,marginTop:10}}>{msg}</p>}
+    </div>
+  );
+}
+
 /* ---------- Connections (LLM connectors + MCP) ---------- */
 function Connections({ terms, data }){
   const { useState, useEffect } = React;
@@ -421,6 +468,8 @@ function Connections({ terms, data }){
           )}
         </React.Fragment>
       )}
+
+      {window.AULA_API && <SearchConnectorCard />}
 
       <div className="eyebrow" style={{marginBottom:12}}>Faculty · model per agent</div>
       <div className="panel" style={{overflow:'hidden',marginBottom:26}}>

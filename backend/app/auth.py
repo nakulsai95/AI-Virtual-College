@@ -1,8 +1,4 @@
-"""Authentication — email/password with PBKDF2 hashing and bearer tokens.
-
-Stdlib only (hashlib, secrets). An unauthenticated request resolves to the
-GUEST user so the demo keeps working without an account.
-"""
+"""Authentication — email/password (PBKDF2) + bearer tokens, on SQLAlchemy."""
 from __future__ import annotations
 
 import hashlib
@@ -10,8 +6,9 @@ import hmac
 import secrets
 
 from fastapi import Depends, Header, HTTPException
+from sqlalchemy import delete, insert, select
 
-from .db import GUEST_ID, connect
+from .db import GUEST_ID, engine, tokens, users
 
 _ITER = 200_000
 
@@ -28,49 +25,49 @@ def register(email: str, password: str, name: str = "") -> dict:
         raise HTTPException(400, "Password must be at least 6 characters.")
     salt = secrets.token_hex(16)
     pw_hash = _hash(password, salt)
-    with connect() as conn:
-        exists = conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
+    display = name or email.split("@")[0]
+    with engine.begin() as conn:
+        exists = conn.execute(select(users.c.id).where(users.c.email == email)).first()
         if exists:
             raise HTTPException(409, "An account with that email already exists.")
-        cur = conn.execute(
-            "INSERT INTO users (email, name, pw_hash, pw_salt) VALUES (?, ?, ?, ?)",
-            (email, name or email.split("@")[0], pw_hash, salt),
-        )
-        uid = cur.lastrowid
-    return {"id": uid, "email": email, "name": name or email.split("@")[0], "token": _issue(uid)}
+        result = conn.execute(insert(users).values(
+            email=email, name=display, pw_hash=pw_hash, pw_salt=salt))
+        uid = result.inserted_primary_key[0]
+    return {"id": uid, "email": email, "name": display, "token": _issue(uid)}
 
 
 def login(email: str, password: str) -> dict:
     email = email.strip().lower()
-    with connect() as conn:
+    with engine.begin() as conn:
         row = conn.execute(
-            "SELECT id, name, pw_hash, pw_salt FROM users WHERE email = ?", (email,)
-        ).fetchone()
-    if not row or not row["pw_salt"] or not hmac.compare_digest(_hash(password, row["pw_salt"]), row["pw_hash"]):
+            select(users.c.id, users.c.name, users.c.pw_hash, users.c.pw_salt)
+            .where(users.c.email == email)
+        ).first()
+    if not row or not row.pw_salt or not hmac.compare_digest(_hash(password, row.pw_salt), row.pw_hash):
         raise HTTPException(401, "Wrong email or password.")
-    return {"id": row["id"], "email": email, "name": row["name"], "token": _issue(row["id"])}
+    return {"id": row.id, "email": email, "name": row.name, "token": _issue(row.id)}
 
 
 def _issue(uid: int) -> str:
     token = secrets.token_urlsafe(32)
-    with connect() as conn:
-        conn.execute("INSERT INTO tokens (token, user_id) VALUES (?, ?)", (token, uid))
+    with engine.begin() as conn:
+        conn.execute(insert(tokens).values(token=token, user_id=uid))
     return token
 
 
 def logout(token: str):
-    with connect() as conn:
-        conn.execute("DELETE FROM tokens WHERE token = ?", (token,))
+    with engine.begin() as conn:
+        conn.execute(delete(tokens).where(tokens.c.token == token))
 
 
 def _user_from_token(token: str) -> dict | None:
-    with connect() as conn:
+    with engine.begin() as conn:
         row = conn.execute(
-            "SELECT u.id, u.email, u.name FROM tokens t JOIN users u ON u.id = t.user_id "
-            "WHERE t.token = ?",
-            (token,),
-        ).fetchone()
-    return dict(row) if row else None
+            select(users.c.id, users.c.email, users.c.name)
+            .select_from(tokens.join(users, users.c.id == tokens.c.user_id))
+            .where(tokens.c.token == token)
+        ).first()
+    return {"id": row.id, "email": row.email, "name": row.name} if row else None
 
 
 def current_user(authorization: str | None = Header(default=None)) -> dict:
