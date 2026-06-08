@@ -1,5 +1,11 @@
 # Dependencies
 node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Backend: persisted connector config holds the user's API key — never commit
+backend/.connectors.json
 
 # Build output
 dist/

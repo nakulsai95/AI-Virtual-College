@@ -35,20 +35,49 @@ whole vocabulary (Principal→Headmaster, Exam→Rank Trial, etc.) changes with 
 
 ## Run the prototype
 
-It's a static app (React via in-browser Babel), so any static server works:
+The app is **React frontend + Python (FastAPI) backend**. The frontend runs
+standalone in demo mode; connect the backend to make the agents real.
+
+### 1. Frontend (always works, demo data)
 
 ```bash
-# from the repo root
-python3 -m http.server 8000
-# then open http://localhost:8000
+# from the repo root — use any port EXCEPT 8000 (the backend's port)
+python3 -m http.server 5173
+# then open http://localhost:5173
 ```
 
-Open `http://localhost:8000`, describe a learning goal, watch the faculty get
-hired, review the plan, and enrol. (State persists in `localStorage`; clear it
-to replay onboarding.)
+Describe a learning goal, watch the faculty get hired, review the plan, and
+enrol. (State persists in `localStorage`; clear it to replay onboarding.)
 
-> Note: open it through a server, not the `file://` protocol — the app loads its
-> JSX modules over HTTP.
+> Open it through a server, not `file://` — the app loads its JSX modules over HTTP.
+
+### 2. Backend (makes the AI real)
+
+```bash
+cd backend
+./run.sh            # creates a venv, installs deps, serves on http://localhost:8000
+```
+
+Then open the frontend's **Connections** screen, pick a provider
+(**Claude · OpenAI · Groq · Ollama**), paste your API key, **Test**, and
+**Connect**. From then on the Principal designs your curriculum with a real
+model, choosing topic-appropriate sandboxes per subject. No key? It stays in
+demo mode and still works end to end.
+
+## Bring your own model (connectors)
+
+The agents are model-agnostic. You choose the provider and supply your own key
+in the UI — nothing is hard-coded:
+
+| Provider | Notes |
+| --- | --- |
+| **Claude (Anthropic)** | Official `anthropic` SDK, adaptive thinking. `claude-opus-4-8` default. |
+| **OpenAI (GPT)** | Official `openai` SDK. |
+| **Groq** | OpenAI-compatible — very fast inference. |
+| **Ollama** | OpenAI-compatible, runs locally — no key, fully private. |
+
+Your key is saved on *your* backend (`backend/.connectors.json`, git-ignored)
+and used to call the provider. It never lands in the repo.
 
 ## Layout
 
@@ -56,13 +85,20 @@ to replay onboarding.)
 index.html              Entry point — loads React + Babel and the app modules
 app/
   theme.js              10 themes + CSS-variable theming engine
-  data.js               Mock scenario (learning backend Python)
+  data.js               Demo scenario (learning backend Python)
+  api.js                Backend client + curriculum adapter
   ui.jsx                Shared primitives (Avatar, Bar, Spark, Icon, RankRing)
   app.jsx               App shell: sidebar nav, topbar, routing, theme switch
-  screens_onboard.jsx   Intake → Hiring → Review enrolment flow
+  screens_onboard.jsx   Intake → Hiring → Review enrolment flow (calls the Principal)
   screens_learn.jsx     Dashboard, Curriculum, Board, Lesson, Guide, Channel, Library, Progress
   screens_admin.jsx     Exams, Faculty Grades, Teacher Board, Command Center, Connections
   app.css, screens.css  Styling
+backend/
+  app/main.py           FastAPI app (CORS + routers)
+  app/llm/              Provider-agnostic LLM layer (Claude/OpenAI/Groq/Ollama + demo mock)
+  app/agents/principal.py   The Principal — designs a curriculum + per-subject sandboxes
+  app/routers/          /api/connectors (the picker) and /api/onboard (the Principal)
+  run.sh, requirements.txt, .env.example
 docs/
   architecture/         System design: component & subsystem specs, architecture map
   screenshots/          Reference captures of the prototype
@@ -70,16 +106,16 @@ docs/
 
 ## Status & roadmap
 
-The prototype is driven by mock data — the "AI" is scripted. Turning it into a
-real product means wiring the design in `docs/architecture/` to live models:
+The product is taking shape. Done so far, and what's next:
 
-- [ ] Real Principal orchestration (intake → curriculum generation)
+- [x] **Pluggable LLM connectors** — pick Claude/OpenAI/Groq/Ollama, bring your key
+- [x] **Real Principal orchestration** — intake → live curriculum generation
+- [x] **Topic/semester-driven sandboxes** — the Principal mounts the right
+      environment per subject (SQL, Git, web search, Jupyter, shell…), not just Python
 - [ ] Per-subject Professor agents that author lessons on demand
 - [ ] Examiner grading + the reward loop that updates professor methodology
-- [ ] **Topic/semester-driven sandboxes** — the right environment is mounted for
-      what you're studying, not just Python: SQL/database, Git/filesystem, web
-      search, Jupyter/data, and more provisioned per subject and module
+- [ ] Real sandbox execution (run code in the mounted environment)
 - [ ] Persistent student model & progress diagnostics
-- [ ] Auth + multi-user backend
+- [ ] Auth + multi-user storage
 
 See `docs/architecture/Architecture Index.html` for the full design.
