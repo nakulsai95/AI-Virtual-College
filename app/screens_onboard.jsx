@@ -6,7 +6,7 @@ function roleLabel(roleKey, terms){
     examiner:'Examiner', registrar:'Registrar', guide:terms.guide, counselor:'Counselor' })[roleKey] || roleKey;
 }
 
-function Onboarding({ terms, mark, onEnroll, themeSwitch }){
+function Onboarding({ terms, mark, onEnroll, themeSwitch, accountMenu }){
   const D = window.AULA_DATA;
   const [phase, setPhase] = useStateO('intake');
   const [goal, setGoal] = useStateO('');
@@ -32,6 +32,7 @@ function Onboarding({ terms, mark, onEnroll, themeSwitch }){
         <div className="onb-brand"><span className="sb-mark">{mark}</span>{terms.college}</div>
         <div className="row" style={{gap:18}}>
           <div className="onb-step">step <b>{stepNum}</b> / 3 · {phase}</div>
+          {accountMenu}
           {themeSwitch}
         </div>
       </div>

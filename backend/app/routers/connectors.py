@@ -1,17 +1,18 @@
-"""Connector management — the LLM-provider picker the user drives in the UI."""
+"""Connector management — the LLM-provider picker, now per-user."""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from .. import store
+from .. import repo
+from ..auth import CurrentUser
 from ..llm import PROVIDER_SPECS, build_provider, provider_spec
 from ..schemas import ConnectorIn, ConnectorStatus
 
 router = APIRouter(prefix="/api/connectors", tags=["connectors"])
 
 
-def _status() -> ConnectorStatus:
-    cfg = store.get_connector()
+def _status(uid: int) -> ConnectorStatus:
+    cfg = repo.get_connector(uid)
     provider = build_provider(cfg)
     using_mock = provider.id == "mock"
     pid = (cfg or {}).get("provider", "") if cfg else ""
@@ -28,43 +29,36 @@ def _status() -> ConnectorStatus:
 
 @router.get("/providers")
 def list_providers():
-    """The catalogue the Connections screen renders."""
     return {"providers": PROVIDER_SPECS}
 
 
 @router.get("/active", response_model=ConnectorStatus)
-def get_active():
-    return _status()
+def get_active(user=CurrentUser):
+    return _status(user["id"])
 
 
 @router.put("/active", response_model=ConnectorStatus)
-def set_active(body: ConnectorIn):
+def set_active(body: ConnectorIn, user=CurrentUser):
     spec = provider_spec(body.provider)
     if spec is None:
         raise HTTPException(400, f"Unknown provider '{body.provider}'")
     if spec["requires_key"] and not body.api_key:
         raise HTTPException(400, f"{spec['name']} requires an API key.")
-    cfg = {
-        "provider": body.provider,
-        "api_key": body.api_key,
-        "model": body.model or spec["default_model"],
-        "base_url": body.base_url,
-    }
-    store.set_connector(cfg)
-    return _status()
+    repo.set_connector(user["id"], {
+        "provider": body.provider, "api_key": body.api_key,
+        "model": body.model or spec["default_model"], "base_url": body.base_url,
+    })
+    return _status(user["id"])
 
 
 @router.post("/test")
 def test_connector(body: ConnectorIn):
-    """Verify a candidate connector WITHOUT saving it (live round-trip)."""
     spec = provider_spec(body.provider)
     if spec is None:
         raise HTTPException(400, f"Unknown provider '{body.provider}'")
     provider = build_provider({
-        "provider": body.provider,
-        "api_key": body.api_key,
-        "model": body.model or spec["default_model"],
-        "base_url": body.base_url,
+        "provider": body.provider, "api_key": body.api_key,
+        "model": body.model or spec["default_model"], "base_url": body.base_url,
     })
     if provider.id == "mock":
         return {"ok": False, "detail": "No key provided — would run in demo mode.", "model": ""}
@@ -72,6 +66,6 @@ def test_connector(body: ConnectorIn):
 
 
 @router.delete("/active", response_model=ConnectorStatus)
-def clear_active():
-    store.clear_connector()
-    return _status()
+def clear_active(user=CurrentUser):
+    repo.set_connector(user["id"], None)
+    return _status(user["id"])

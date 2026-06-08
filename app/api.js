@@ -14,8 +14,15 @@
     window.AULA_API_BASE ||
     'http://localhost:8000';
 
+  const TOKEN_KEY = 'aula_token';
+  const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
+  const setToken = (t) => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) {} };
+
   async function req(method, path, body) {
-    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    const headers = { 'Content-Type': 'application/json' };
+    const tok = getToken();
+    if (tok) headers.Authorization = 'Bearer ' + tok;
+    const opts = { method, headers };
     if (body !== undefined) opts.body = JSON.stringify(body);
     const res = await fetch(BASE + path, opts);
     const text = await res.text();
@@ -44,6 +51,17 @@
     grade: (payload) => req('POST', '/api/grade', payload),
     faculty: () => req('GET', '/api/faculty'),
     runCode: (sandbox, code) => req('POST', '/api/sandbox/run', { sandbox, code }),
+    progress: () => req('GET', '/api/progress'),
+    enrollment: () => req('GET', '/api/enrollment'),
+    // Auth
+    token: getToken,
+    isAuthed: () => !!getToken(),
+    me: () => req('GET', '/api/auth/me'),
+    register: (email, password, name) =>
+      req('POST', '/api/auth/register', { email, password, name }).then(u => { setToken(u.token); return u; }),
+    login: (email, password) =>
+      req('POST', '/api/auth/login', { email, password }).then(u => { setToken(u.token); return u; }),
+    logout: () => req('POST', '/api/auth/logout').catch(() => {}).then(() => setToken('')),
   };
 
   // Hue palette so generated subjects/faculty look at home in the design.
@@ -92,6 +110,19 @@
     window.AULA_CURRICULUM = curriculum;
   }
 
+  /* Map the backend student model onto the live data the screens read. */
+  function applyStudent(s) {
+    if (!s || !window.AULA_DATA) return;
+    const D = window.AULA_DATA;
+    const S = D.STUDENT || {};
+    ['xp', 'streak', 'momentum', 'attendance', 'week', 'weeks', 'rankTier', 'nextTierXp', 'mission', 'level']
+      .forEach((k) => { if (s[k] !== undefined && s[k] !== null) S[k] = s[k]; });
+    D.STUDENT = S;
+    if (s.mastery && s.mastery.length) D.MASTERY = s.mastery;
+    window.AULA_STUDENT = s;
+  }
+
   window.AULA_API = AULA_API;
   window.applyCurriculum = applyCurriculum;
+  window.applyStudent = applyStudent;
 })();

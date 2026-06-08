@@ -4,6 +4,26 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+# ---- Auth --------------------------------------------------------------
+
+class RegisterIn(BaseModel):
+    email: str
+    password: str
+    name: str = ""
+
+
+class AuthIn(BaseModel):
+    email: str
+    password: str
+
+
+class AuthOut(BaseModel):
+    id: int
+    email: str
+    name: str
+    token: str
+
+
 # ---- Connectors --------------------------------------------------------
 
 class ConnectorIn(BaseModel):

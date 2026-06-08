@@ -3,6 +3,8 @@ const { useState: useStateL, useEffect: useEffectL, useRef: useRefL } = React;
 
 /* ---------- Dashboard ---------- */
 function Dashboard({ terms, nav, data }){
+  const [,setTickD] = useStateL(0);
+  useEffectL(()=>{ if(window.AULA_API) window.AULA_API.progress().then(p=>{ if(p&&p.student){ window.applyStudent(p.student); setTickD(t=>t+1);} }).catch(()=>{}); },[]);
   const S = data.STUDENT;
   const ranks = terms.ranks;
   return (
@@ -439,6 +441,8 @@ function levelMeta(l){
   return { label:'Needs work', cls:'coral', color:'var(--coral)' };
 }
 function ProgressScreen({ terms, nav, data }){
+  const [,setTick] = useStateL(0);
+  useEffectL(()=>{ if(window.AULA_API) window.AULA_API.progress().then(p=>{ if(p&&p.student){ window.applyStudent(p.student); setTick(t=>t+1);} }).catch(()=>{}); },[]);
   const flat = data.MASTERY.flatMap(s=>s.concepts.map(c=>({...c, subject:s.subject, hue:s.hue})));
   const overall = Math.round(flat.reduce((a,c)=>a+c.level,0)/flat.length*100);
   const strengths = flat.filter(c=>c.level>=0.8).sort((a,b)=>b.level-a.level).slice(0,3);

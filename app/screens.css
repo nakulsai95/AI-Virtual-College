@@ -253,3 +253,9 @@
 .conn-input{width:100%;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--ink);font-family:var(--font-b);font-size:14px;padding:10px 12px;outline:none}
 .conn-input:focus{border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
 select.conn-input{appearance:none;cursor:pointer}
+
+/* ===== Auth modal ===== */
+.modal-backdrop{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);display:grid;place-items:center;padding:20px}
+.modal{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--border-strong);border-radius:16px;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.modal .seg{width:100%}
+.modal .seg button{flex:1}

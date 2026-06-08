@@ -64,6 +64,13 @@ Then open the frontend's **Connections** screen, pick a provider
 model, choosing topic-appropriate sandboxes per subject. No key? It stays in
 demo mode and still works end to end.
 
+### Accounts & persistence
+
+The backend is **multi-user**. Create an account (or "continue as guest") from
+the sign-in dialog — your enrollment, faculty/reward state, and progress are
+saved per user in SQLite (`backend/aula.db`, git-ignored) and restored on your
+next visit. Each user's connector + key, college, and progress are isolated.
+
 ## Bring your own model (connectors)
 
 The agents are model-agnostic. You choose the provider and supply your own key
@@ -76,7 +83,7 @@ in the UI — nothing is hard-coded:
 | **Groq** | OpenAI-compatible — very fast inference. |
 | **Ollama** | OpenAI-compatible, runs locally — no key, fully private. |
 
-Your key is saved on *your* backend (`backend/.connectors.json`, git-ignored)
+Your key is saved on *your* backend (in `backend/aula.db`, per user, git-ignored)
 and used to call the provider. It never lands in the repo.
 
 ## Layout
@@ -94,10 +101,15 @@ app/
   screens_admin.jsx     Exams, Faculty Grades, Teacher Board, Command Center, Connections
   app.css, screens.css  Styling
 backend/
-  app/main.py           FastAPI app (CORS + routers)
+  app/main.py           FastAPI app (CORS + routers, DB init on startup)
+  app/db.py, repo.py    SQLite persistence + per-user state access
+  app/auth.py           Accounts (PBKDF2 + bearer tokens), guest fallback
   app/llm/              Provider-agnostic LLM layer (Claude/OpenAI/Groq/Ollama + demo mock)
-  app/agents/principal.py   The Principal — designs a curriculum + per-subject sandboxes
-  app/routers/          /api/connectors (the picker) and /api/onboard (the Principal)
+  app/state.py          Per-user faculty grades, methodology versions, reward feed
+  app/progress.py       The student model (per-concept mastery, XP, streak)
+  app/agents/           Principal (curriculum), Professor (lessons), Examiner (grading)
+  app/sandbox/          Real execution: Python subprocess + SQLite
+  app/routers/          auth · connectors · onboard · faculty · sandbox · progress
   run.sh, requirements.txt, .env.example
 docs/
   architecture/         System design: component & subsystem specs, architecture map
@@ -117,9 +129,12 @@ The product is taking shape. Done so far, and what's next:
       (not you); a failure triggers the **Provost** to rewrite their methodology
 - [x] **Real sandbox execution** — Python (isolated subprocess) and SQL (SQLite)
       run live from the lesson; the Command Center shows the reward feed update
-- [ ] Persistent student model & progress diagnostics
-- [ ] Auth + multi-user storage
+- [x] **Persistent student model & progress diagnostics** — per-concept mastery,
+      XP, and streak update as you learn; the My Progress screen reads it live
+- [x] **Accounts + multi-user storage** — register/login (or guest), with each
+      user's connector, college, faculty state, and progress isolated in SQLite
 - [ ] Hardened sandbox isolation (container/network) for untrusted code
+- [ ] Exams as full assessments (the Examiner sets, not just grades, exams)
 
 > ⚠️ The Python sandbox runs code in a subprocess with CPU/memory/time limits —
 > fine for local single-user dev, **not** a hardened multi-tenant boundary. Don't
