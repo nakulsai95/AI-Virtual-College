@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Student Model &amp; Schema</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">subsystem</a>&nbsp; / &nbsp;<b>Student Model</b></div>
+    <span class="pill">subsystem · C4</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Subsystem architecture · the state</div>
+  <h1>The Student Model is <span class="grad">sₜ.</span></h1>
+  <p class="lede">This is the object every agent observes before it acts. Owned by the Registrar, written only through events, read by everyone. Get this schema right and the rest of the system has a stable foundation — it's the first thing to build.</p>
+  <div class="tags">
+    <span class="tag"><b>owner</b><span class="eq">=</span>Registrar</span>
+    <span class="tag"><b>writes</b><span class="eq">=</span>via events only</span>
+    <span class="tag"><b>reads</b><span class="eq">=</span>all agents</span>
+    <span class="tag"><b>role</b><span class="eq">=</span>RL state sₜ</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Schema">
+  <div class="sec-head">
+    <div class="eyebrow">The schema</div>
+    <h2>Seven sections, one object.</h2>
+    <p>Field-level spec. Nested objects are noted; this is the model Claude Code should scaffold first.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Section</th><th>Field</th><th>Type · note</th></tr></thead>
+      <tbody>
+        <tr><td class="ag" rowspan="2">identity</td><td><code class="k">studentId</code></td><td class="mono">uuid</td></tr>
+        <tr><td><code class="k">level</code></td><td class="mono">enum beginner|mid|advanced (from placement)</td></tr>
+
+        <tr><td class="ag" rowspan="3">goal</td><td><code class="k">mission</code></td><td class="mono">string — "become job-ready in backend Python"</td></tr>
+        <tr><td><code class="k">audience</code></td><td class="mono">enum kid|student|switcher|jobseeker</td></tr>
+        <tr><td><code class="k">careerMode</code></td><td class="mono">bool — outcomes engine on/off</td></tr>
+
+        <tr><td class="ag" rowspan="3">mastery</td><td><code class="k">concepts[]</code></td><td class="mono">map conceptId → MasteryCell</td></tr>
+        <tr><td><code class="k">MasteryCell.level</code></td><td class="mono">float 0–1</td></tr>
+        <tr><td><code class="k">MasteryCell.lastSeen</code></td><td class="mono">ts — drives spaced revision</td></tr>
+
+        <tr><td class="ag" rowspan="2">history</td><td><code class="k">events[]</code></td><td class="mono">ref to event log (lessons, answers, exams)</td></tr>
+        <tr><td><code class="k">reflections[]</code></td><td class="mono">learner notes &amp; sentiment</td></tr>
+
+        <tr><td class="ag" rowspan="2">momentum</td><td><code class="k">streak</code></td><td class="mono">int — consecutive active days</td></tr>
+        <tr><td><code class="k">score</code></td><td class="mono">float — recency-weighted engagement</td></tr>
+
+        <tr><td class="ag" rowspan="3">preferences</td><td><code class="k">modality</code></td><td class="mono">ranked blog|image|anim|video</td></tr>
+        <tr><td><code class="k">pace</code></td><td class="mono">enum slow|normal|fast</td></tr>
+        <tr><td><code class="k">theme</code></td><td class="mono">themeId (see C8)</td></tr>
+
+        <tr><td class="ag" rowspan="2">progression</td><td><code class="k">xp</code></td><td class="mono">int — monotonic</td></tr>
+        <tr><td><code class="k">rank</code></td><td class="mono">tier 1–4</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Mastery">
+  <div class="sec-head"><div class="eyebrow">The mastery representation</div><h2>Per-concept, with decay.</h2></div>
+  <div class="grid g2">
+    <div class="callout accent">
+      <h3>Why per-concept, not per-course</h3>
+      <p>Mastery lives at the concept grain so the Provost can pinpoint <i>which</i> idea didn't land, the Examiner can test gaps, and adaptive difficulty can target the weak cell — not the whole subject.</p>
+      <div class="big">conceptId → { level, confidence, lastSeen }</div>
+    </div>
+    <div class="callout mint">
+      <h3>Decay drives revision</h3>
+      <p>Each cell's effective level decays with time since <code class="k">lastSeen</code>. When it dips below a bar, the Registrar emits a revision cue — this is the engine behind spaced repetition.</p>
+      <div class="big">effLevel = level · decay(now − lastSeen)</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Access">
+  <div class="sec-head"><div class="eyebrow">Access pattern</div><h2>One writer, many readers.</h2></div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Who</th><th>Reads</th><th>Triggers a write via</th></tr></thead>
+      <tbody>
+        <tr><td class="ag">Faculty</td><td class="mono">mastery, preferences, history</td><td class="mono">lesson.published, probe result</td></tr>
+        <tr><td class="ag">Examiner</td><td class="mono">mastery, enrollment</td><td class="mono">exam.result → mastery.updated</td></tr>
+        <tr><td class="ag">Guide</td><td class="mono">mission, mastery</td><td class="mono">doubt.resolved</td></tr>
+        <tr><td class="ag">Counselor</td><td class="mono">momentum, reflections</td><td class="mono">chat.sentiment</td></tr>
+        <tr><td class="ag">Reward system</td><td class="mono">xp, rank</td><td class="mono">reward.signal</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Subsystem C4 complete</div>
+  <h2 style="font-size:24px">Next: where the college comes from.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Domain Library supplies curated context packs, with auto-generation as the fallback.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Subsystem - Reward Grading.html"><span class="k">subsystem c3</span>Reward &amp; Grading</a>
+  </div>
+  <p class="foot-note">AULA · Subsystem C4 · Student Model · the RL state — build this schema first.</p>
+</footer>
+
+</body>
+</html>

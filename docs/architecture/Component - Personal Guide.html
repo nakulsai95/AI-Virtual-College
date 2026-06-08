@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Personal Guide Architecture</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">component</a>&nbsp; / &nbsp;<b>Personal Guide</b></div>
+    <span class="pill">component 05</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Component architecture · 05 of n</div>
+  <h1>The Guide is the <span class="grad">router.</span></h1>
+  <p class="lede">You never have to know which professor owns a topic. The Personal Guide is the one agent you always talk to: it classifies any doubt, decides whether to answer it itself or hand it to the right teacher, and makes sure the answer lands on your board as a <b class="ink">lesson</b> — never lost in chat.</p>
+  <div class="tags">
+    <span class="tag"><b>role</b><span class="eq">=</span>student-facing concierge</span>
+    <span class="tag"><b>input</b><span class="eq">=</span>any doubt, any phrasing</span>
+    <span class="tag"><b>output</b><span class="eq">=</span>routed answer + lesson card</span>
+    <span class="tag"><b>reward</b><span class="eq">=</span>fast, correct routing</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Routing">
+  <div class="sec-head">
+    <div class="eyebrow">The routing pipeline</div>
+    <h2>Doubt in. Right teacher out.</h2>
+    <p>The Guide is a dispatcher policy. Its reward is resolution speed × correctness — misroutes and unresolved doubts cost it.</p>
+  </div>
+  <div class="split">
+    <div class="pipe">
+      <div class="pstep"><div class="pn">1</div><div class="pc"><b>Receive</b><span>A doubt in natural language, any time, any subject.</span></div></div>
+      <div class="pstep"><div class="pn">2</div><div class="pc"><b>Classify</b><span>Map it to a subject &amp; the owning professor — or "general".</span></div></div>
+      <div class="pstep"><div class="pn">3</div><div class="pc"><b>Decide</b><span>Answer it directly if light; route if it needs the specialist.</span></div></div>
+      <div class="pstep"><div class="pn">4</div><div class="pc"><b>Hand off</b><span>Pass full context to the professor so they don't re-ask.</span></div></div>
+      <div class="pstep"><div class="pn">5</div><div class="pc"><b>Persist</b><span>The answer becomes a lesson card on the student kanban.</span></div></div>
+      <div class="pstep"><div class="pn">6</div><div class="pc"><b>Confirm</b><span>Check the doubt is resolved; reopen or escalate if not.</span></div></div>
+    </div>
+    <div class="callout accent">
+      <h3>Self-answer vs. route</h3>
+      <p>The Guide answers logistics, recaps and pointers itself. Anything that <i>teaches a concept</i> is routed to the owning professor — so teaching credit (and reward) lands on the right agent.</p>
+      <div class="big">light → Guide answers · conceptual → professor teaches</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Modules">
+  <div class="sec-head"><div class="eyebrow">Inside the Guide</div><h2>Six modules.</h2></div>
+  <div class="grid g3">
+    <div class="mod"><div class="ix">M1<span class="badge">understand</span></div><h3>Doubt Classifier</h3><p>NLU over the message — intent, subject, concept, urgency. The routing brain.</p><div class="io">model · <b>fast &amp; cheap</b></div></div>
+    <div class="mod"><div class="ix">M2<span class="badge">route</span></div><h3>Router</h3><p>Resolves the classified concept to the owning agent via the curriculum map.</p><div class="io">reads · <b>org chart</b></div></div>
+    <div class="mod"><div class="ix">M3<span class="badge">answer</span></div><h3>Self-Answer</h3><p>Handles logistics, recaps &amp; navigation without bothering a professor.</p><div class="io">scope · <b>non-teaching</b></div></div>
+    <div class="mod"><div class="ix">M4<span class="badge">handoff</span></div><h3>Context Handoff</h3><p>Packages the doubt + student state so the teacher starts warm.</p><div class="io">to · <b>professor</b></div></div>
+    <div class="mod"><div class="ix">M5<span class="badge">persist</span></div><h3>Lesson Writer</h3><p>Turns each resolved doubt into a durable, revisitable lesson card.</p><div class="io">to · <b>student kanban</b></div></div>
+    <div class="mod"><div class="ix">M6<span class="badge">verify</span></div><h3>Resolution Tracker</h3><p>Confirms the doubt is actually cleared; reopens or escalates otherwise.</p><div class="io">its own · <b>reward</b></div></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Routing table">
+  <div class="sec-head"><div class="eyebrow">Routing decisions</div><h2>Where doubts go.</h2></div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Doubt looks like</th><th>Routed to</th><th>Becomes</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">"How does JWT auth work?"</td><td class="ag">Owning professor</td><td class="mono">A new blog lesson</td></tr>
+        <tr><td class="mono">"When's my next exam?"</td><td class="ag">Guide (self)</td><td class="mono">A direct answer</td></tr>
+        <tr><td class="mono">"I'm stuck on the assignment"</td><td class="ag">Professor + TA</td><td class="mono">Office-hours offer</td></tr>
+        <tr><td class="mono">"This is too fast for me"</td><td class="ag">Counselor</td><td class="mono">A pacing review</td></tr>
+        <tr><td class="mono">"I think my grade is wrong"</td><td class="ag">Examiner</td><td class="mono">A re-grade request</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Interfaces">
+  <div class="sec-head"><div class="eyebrow">Interfaces · the contract</div><h2>What it consumes, what it emits.</h2></div>
+  <div class="io2">
+    <div class="iocard in">
+      <h3><span class="d"></span>Subscribes&nbsp;·&nbsp;inputs</h3>
+      <div class="evt"><code>doubt.raised</code><span>the learner asks something</span></div>
+      <div class="evt"><code>student.model</code><span>context for the handoff</span></div>
+      <div class="evt"><code>curriculum.map</code><span>who owns which concept</span></div>
+      <div class="evt"><code>lesson.published</code><span>the professor's reply</span></div>
+    </div>
+    <div class="iocard out">
+      <h3><span class="d"></span>Emits&nbsp;·&nbsp;outputs</h3>
+      <div class="evt"><code>route.assigned</code><span>doubt sent to an agent</span></div>
+      <div class="evt"><code>lesson.created</code><span>card on the student board</span></div>
+      <div class="evt"><code>doubt.resolved</code><span>closes the loop</span></div>
+      <div class="evt"><code>escalation.raised</code><span>unresolved → up the chain</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Component 05 complete</div>
+  <h2 style="font-size:24px">Next: the source of truth.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Registrar owns attendance &amp; the student model every other agent reads.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Component - Examiner.html"><span class="k">component 04</span>Examiner</a>
+  </div>
+  <p class="foot-note">AULA · Component 05 · Personal Guide · the dispatcher that makes the whole faculty feel like one chat.</p>
+</footer>
+
+</body>
+</html>

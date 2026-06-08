@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Domain Library &amp; Auto-gen</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">subsystem</a>&nbsp; / &nbsp;<b>Domain Library</b></div>
+    <span class="pill">subsystem · C5</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Subsystem architecture · the knowledge supply</div>
+  <h1>Curated where it counts. <span class="grad">Generated</span> everywhere else.</h1>
+  <p class="lede">When you say what you want to learn, the Principal needs a context pack: who to hire, what to teach, how to grade, which tools to mount. Popular domains ship a hand-tuned pack; anything else is generated on the fly. <b class="ink">Coverage is never the blocker.</b></p>
+  <div class="tags">
+    <span class="tag"><b>primary</b><span class="eq">=</span>curated packs</span>
+    <span class="tag"><b>fallback</b><span class="eq">=</span>auto-generated</span>
+    <span class="tag"><b>unit</b><span class="eq">=</span>domain pack</span>
+    <span class="tag"><b>loop</b><span class="eq">=</span>good gen → promoted</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Pack schema">
+  <div class="sec-head">
+    <div class="eyebrow">The domain pack</div>
+    <h2>What a college is, before it's staffed.</h2>
+    <p>The reusable unit. Curated and generated packs share this schema — only the provenance differs.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Field</th><th>Type</th><th>Feeds</th></tr></thead>
+      <tbody>
+        <tr><td><code class="k">domainId</code></td><td class="mono">string</td><td class="mono">resolution &amp; cache key</td></tr>
+        <tr><td><code class="k">facultyRoster</code></td><td class="mono">role[] + personas</td><td class="mono">Principal · hiring</td></tr>
+        <tr><td><code class="k">syllabus</code></td><td class="mono">subject → module → concept tree</td><td class="mono">Curriculum Builder (C6)</td></tr>
+        <tr><td><code class="k">rubrics</code></td><td class="mono">objective → grading criteria</td><td class="mono">Examiner</td></tr>
+        <tr><td><code class="k">tools</code></td><td class="mono">mcpToolId[]</td><td class="mono">Connection Layer (C2)</td></tr>
+        <tr><td><code class="k">difficultyLevels</code></td><td class="mono">beginner|mid|advanced variants</td><td class="mono">placement &amp; adaptivity</td></tr>
+        <tr><td><code class="k">provenance</code></td><td class="mono">enum curated|generated</td><td class="mono">trust &amp; promotion</td></tr>
+        <tr><td><code class="k">quality</code></td><td class="mono">float — avg learner outcome</td><td class="mono">promotion gate</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Two paths">
+  <div class="sec-head"><div class="eyebrow">Resolution</div><h2>Two ways to get a pack.</h2></div>
+  <div class="grid g2">
+    <div class="callout accent">
+      <h3>Curated · verified</h3>
+      <p>Hand-built for popular domains — Backend Python, ML, Quant Trading, UX, Data Eng, Calculus. Faculty, syllabus, rubrics &amp; tools are reviewed. Used directly when the intent matches.</p>
+      <div class="chiprow" style="margin-top:14px">
+        <span class="chip">Backend Python</span><span class="chip">Machine Learning</span><span class="chip">UX Design</span><span class="chip">Calculus</span>
+      </div>
+    </div>
+    <div class="callout mint">
+      <h3>Generated · always works</h3>
+      <p>No match? The pack is generated from the intent at intake — drafted, validated, cached, and used. It improves as the learner progresses, and good ones get promoted.</p>
+      <div class="big">"teach me falconry" → drafted pack → staffed</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Pipeline">
+  <div class="sec-head">
+    <div class="eyebrow">The auto-gen pipeline</div>
+    <h2>From a rare request to a working college.</h2>
+  </div>
+  <div class="flow" style="grid-template-columns:repeat(6,1fr)">
+    <div class="fstep"><div class="n">1</div><h4>Resolve</h4><p>No curated match found.</p></div>
+    <div class="fstep"><div class="n">2</div><h4>Draft</h4><p>Generate roster, syllabus, rubrics, tools.</p></div>
+    <div class="fstep"><div class="n">3</div><h4>Validate</h4><p>Schema &amp; sanity checks; safety filter.</p></div>
+    <div class="fstep"><div class="n">4</div><h4>Cache</h4><p>Store as a generated pack.</p></div>
+    <div class="fstep"><div class="n">5</div><h4>Serve</h4><p>Principal hires from it.</p></div>
+    <div class="fstep"><div class="n">6</div><h4>Promote?</h4><p>High quality → into the library.</p></div>
+  </div>
+  <div class="callout gold" style="margin-top:24px">
+    <h3>The flywheel</h3>
+    <p>Generated packs that produce strong learner outcomes (high <code class="k">quality</code>) get reviewed and promoted to curated. The library grows itself from real usage — coverage compounds.</p>
+    <div class="big">usage → generation → outcomes → promotion → curated</div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Subsystem C5 complete</div>
+  <h2 style="font-size:24px">Next: turning a pack into a semester.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Curriculum Builder decomposes a mission &amp; pack into subjects, modules, tasks &amp; exams.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Subsystem - Student Model.html"><span class="k">subsystem c4</span>Student Model</a>
+  </div>
+  <p class="foot-note">AULA · Subsystem C5 · Domain Library · curated quality with a generated safety net that promotes itself.</p>
+</footer>
+
+</body>
+</html>

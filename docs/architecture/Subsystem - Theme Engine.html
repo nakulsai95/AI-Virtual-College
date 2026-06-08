@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Theme Engine</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">subsystem</a>&nbsp; / &nbsp;<b>Theme Engine</b></div>
+    <span class="pill">subsystem · C8</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Subsystem architecture · the skin</div>
+  <h1>One college. <span class="grad">Infinite skins.</span></h1>
+  <p class="lede">Theme isn't decoration — it reskins the whole vocabulary and palette. The same engine renders an academic baseline, a shonen Ninja Path, or a dark Blade Corps. Built data-driven, so a new skin — or a user-authored one — is just another record. The live demo is in <a href="Concepts &amp; Theming.html" style="color:var(--accent)">Concepts &amp; Theming</a>.</p>
+  <div class="tags">
+    <span class="tag"><b>unit</b><span class="eq">=</span>theme record</span>
+    <span class="tag"><b>applies</b><span class="eq">=</span>tokens + terms + personas</span>
+    <span class="tag"><b>shipped</b><span class="eq">=</span>10 skins</span>
+    <span class="tag"><b>authorable</b><span class="eq">=</span>by users</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Theme schema">
+  <div class="sec-head">
+    <div class="eyebrow">The theme record</div>
+    <h2>What a skin is made of.</h2>
+    <p>Three layers — color, language, character. The engine swaps all three from one record.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Field</th><th>Type</th><th>Layer</th></tr></thead>
+      <tbody>
+        <tr><td><code class="k">themeId</code></td><td class="mono">string</td><td class="mono">identity</td></tr>
+        <tr><td><code class="k">wordmark</code> · <code class="k">glyph</code></td><td class="mono">string</td><td class="mono">brand</td></tr>
+        <tr><td><code class="k">palette</code></td><td class="mono">{ bg, accent, accent2 } → CSS tokens</td><td class="mono">color</td></tr>
+        <tr><td><code class="k">terms</code></td><td class="mono">map: college, principal, professor, semester, exam…</td><td class="mono">language</td></tr>
+        <tr><td><code class="k">ranks</code></td><td class="mono">string[] — the rank ladder labels</td><td class="mono">language</td></tr>
+        <tr><td><code class="k">personas</code></td><td class="mono">avatar set + voice per role</td><td class="mono">character</td></tr>
+        <tr><td><code class="k">vibe</code></td><td class="mono">string — picker description</td><td class="mono">meta</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="How it applies">
+  <div class="sec-head"><div class="eyebrow">How it applies</div><h2>Three swaps, one switch.</h2></div>
+  <div class="grid g3">
+    <div class="callout accent"><h3>1 · Token injection</h3><p>The palette writes CSS custom properties on <code class="k">:root</code> — <code class="k">--accent</code>, <code class="k">--bg</code> — and the whole UI recolors with a transition. No re-render.</p></div>
+    <div class="callout mint"><h3>2 · Term substitution</h3><p>Every themed string carries a <code class="k">data-term</code> key; the engine fills it from the record. "Principal" becomes "Headmaster" or "Commander" in place.</p></div>
+    <div class="callout gold"><h3>3 · Persona swap</h3><p>Each role binds to the theme's persona set — avatar &amp; voice — so the same Faculty Agent reads as a sensei or a slayer-corps master.</p></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Shipped skins">
+  <div class="sec-head"><div class="eyebrow">Shipped skins</div><h2>Ten, genre-inspired, original naming.</h2>
+    <p>No copyrighted characters, logos or art — the vibe of each genre with original vocabulary.</p></div>
+  <div class="chiprow">
+    <span class="chip"><span class="sw" style="background:#6e8efb"></span>Standard</span>
+    <span class="chip"><span class="sw" style="background:#f5a623"></span>Ninja Path</span>
+    <span class="chip"><span class="sw" style="background:#e0566b"></span>Blade Corps</span>
+    <span class="chip"><span class="sw" style="background:#9b6cff"></span>Spirit Order</span>
+    <span class="chip"><span class="sw" style="background:#4ade80"></span>Hero Course</span>
+    <span class="chip"><span class="sw" style="background:#f6c453"></span>Grand Voyage</span>
+    <span class="chip"><span class="sw" style="background:#c084fc"></span>Arcane Academy</span>
+    <span class="chip"><span class="sw" style="background:#34d3e6"></span>Mecha Program</span>
+    <span class="chip"><span class="sw" style="background:#ff4d9d"></span>Neo Net</span>
+    <span class="chip"><span class="sw" style="background:#f4a6c0"></span>Dream Studio</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Authoring">
+  <div class="sec-head"><div class="eyebrow">Authoring</div><h2>Users define their own world.</h2></div>
+  <div class="flow" style="grid-template-columns:repeat(5,1fr)">
+    <div class="fstep"><div class="n">1</div><h4>Palette</h4><p>Pick bg + two accents.</p></div>
+    <div class="fstep"><div class="n">2</div><h4>Vocabulary</h4><p>Name the roles &amp; ranks.</p></div>
+    <div class="fstep"><div class="n">3</div><h4>Personas</h4><p>Choose avatars &amp; voice.</p></div>
+    <div class="fstep"><div class="n">4</div><h4>Preview</h4><p>See it reskin live.</p></div>
+    <div class="fstep"><div class="n">5</div><h4>Save</h4><p>Stored on the student model.</p></div>
+  </div>
+  <div class="callout accent" style="margin-top:24px">
+    <h3>One record, total reskin</h3>
+    <p>Because every themed surface reads from the same record, authoring a skin never touches component code. The engine is the contract; themes are data.</p>
+    <div class="big">theme = data · components = theme-agnostic</div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Done">
+  <div class="eyebrow">Subsystem C8 complete · all diagrams done</div>
+  <h2 style="font-size:24px">That's the whole architecture.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:62ch">Seven agent specs, eight subsystems, two system maps. Ready to hand to Claude Code — start from the Student Model (C4) and the Event Bus (C1), then the agents.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Subsystem - Career Engine.html"><span class="k">subsystem c7</span>Career Engine</a>
+  </div>
+  <p class="foot-note">AULA · Subsystem C8 · Theme Engine · themes are data — author a world without touching code.</p>
+</footer>
+
+</body>
+</html>

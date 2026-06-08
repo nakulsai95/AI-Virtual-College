@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Principal / Orchestrator Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0d11; --bg-2:#0f131a; --surface:#141922; --surface-2:#1a2029;
+    --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.15);
+    --ink:#e9ebf2; --muted:#969cad; --faint:#5f6678;
+    --accent:#6e8efb; --accent-soft:rgba(110,142,251,.13);
+    --mint:#46d6ad; --coral:#f0846b; --gold:#e6c06a;
+    --r:14px; --maxw:1160px;
+    --font-d:"Space Grotesk",sans-serif; --font-b:"Sora",sans-serif; --font-m:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--font-b); font-weight:300; line-height:1.5; -webkit-font-smoothing:antialiased;
+    background-image:
+      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+      radial-gradient(circle at 80% -5%, rgba(110,142,251,.08), transparent 45%);
+    background-size:34px 34px, 34px 34px, 100% 100%;
+    background-attachment:fixed;
+  }
+  ::selection{background:var(--accent-soft);color:#fff}
+
+  .topbar{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(11,13,17,.78);border-bottom:1px solid var(--border)}
+  .topbar .inner{max-width:var(--maxw);margin:0 auto;padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-d);font-weight:700;letter-spacing:.14em;font-size:15px}
+  .brand .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(150deg,var(--accent),#9a7bf0);display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;box-shadow:0 0 0 1px rgba(255,255,255,.12) inset}
+  .crumb{font-family:var(--font-m);font-size:12px;color:var(--faint)}
+  .crumb a{color:var(--faint);text-decoration:none} .crumb a:hover{color:var(--muted)}
+  .crumb b{color:var(--accent)}
+  .pill{font-family:var(--font-m);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--border-strong);border-radius:100px;padding:6px 13px;background:var(--accent-soft)}
+  @media(max-width:680px){.crumb{display:none}}
+
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  section{padding:64px 0 8px}
+  .eyebrow{font-family:var(--font-m);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--accent);opacity:.6}
+  h1{font-family:var(--font-d);font-weight:700;letter-spacing:-.02em;line-height:1.04}
+  h2{font-family:var(--font-d);font-weight:600;font-size:30px;letter-spacing:-.01em;line-height:1.14}
+  h3{font-family:var(--font-d);font-weight:600;font-size:17px;letter-spacing:-.01em}
+  .lede{color:var(--muted);font-size:18px;max-width:64ch;font-weight:300}
+  .sec-head{margin-bottom:30px}
+  .sec-head p{color:var(--muted);font-size:16px;max-width:64ch;margin-top:10px}
+
+  .hero{padding-top:58px}
+  .hero h1{font-size:clamp(38px,6vw,66px);margin:8px 0 20px}
+  .hero h1 .grad{background:linear-gradient(100deg,var(--accent),#b9a3ff,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hero .lede{font-size:20px}
+  .tags{display:flex;flex-wrap:wrap;gap:9px;margin-top:26px}
+  .tag{font-family:var(--font-m);font-size:12px;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 12px;background:var(--surface);display:flex;align-items:center;gap:8px}
+  .tag b{color:var(--ink);font-weight:500}
+  .tag .eq{color:var(--accent)}
+
+  /* hierarchy diagram */
+  .hier{display:flex;flex-direction:column;align-items:center;margin-top:10px}
+  .node{border:1px solid var(--border-strong);border-radius:var(--r);padding:20px 22px;background:var(--surface);position:relative;text-align:center;max-width:420px;width:100%}
+  .node .tagrl{font-family:var(--font-m);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .node h3{font-size:20px;margin:6px 0 4px}
+  .node .sub{color:var(--muted);font-size:13px}
+  .node .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px;justify-content:center}
+  .node .chips span{font-family:var(--font-m);font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:4px 8px;background:var(--bg-2)}
+  .node.principal{box-shadow:0 0 0 1px var(--accent-soft) inset,0 18px 50px rgba(110,142,251,.14);border-color:rgba(110,142,251,.5);max-width:460px}
+  .node.board{background:var(--bg-2);max-width:380px}
+  .node.board .tagrl{color:var(--gold)}
+
+  .vlink{display:flex;gap:46px;justify-content:center;padding:12px 0}
+  .vcol{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .vcol .lab{font-family:var(--font-m);font-size:11px;text-align:center;line-height:1.4;max-width:140px}
+  .vcol .line{width:2px;height:30px;position:relative;background:currentColor}
+  .vcol.down{color:var(--accent)}
+  .vcol.up{color:var(--mint)}
+  .vcol.down .line::after{content:"";position:absolute;bottom:-2px;left:-4px;border-top:9px solid currentColor;border-left:5px solid transparent;border-right:5px solid transparent}
+  .vcol.up{flex-direction:column-reverse}
+  .vcol.up .line::before{content:"";position:absolute;top:-2px;left:-4px;border-bottom:9px solid currentColor;border-left:5px solid transparent;border-right:5px solid transparent}
+  .vcol .lab b{font-weight:600}
+
+  .workers{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:760px}
+  .worker{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;min-width:128px;text-align:center;transition:border-color .16s,transform .16s}
+  .worker:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .worker .wt{font-family:var(--font-d);font-weight:600;font-size:13.5px}
+  .worker .wr{font-family:var(--font-m);font-size:10.5px;color:var(--faint);margin-top:3px}
+  .worker.you{border-style:dashed}
+
+  .hnote{font-family:var(--font-m);font-size:12px;color:var(--faint);text-align:center;margin-top:22px;max-width:60ch;margin-left:auto;margin-right:auto;line-height:1.6}
+  .hnote b{color:var(--accent)}
+
+  /* modules grid */
+  .grid{display:grid;gap:14px}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:960px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.g4,.g3,.g2{grid-template-columns:1fr}}
+  .mod{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;transition:border-color .18s,transform .18s}
+  .mod:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .mod .ix{font-family:var(--font-m);font-size:11px;color:var(--faint);display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .mod .ix .badge{color:var(--accent);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:10px}
+  .mod h3{font-size:15.5px}
+  .mod p{color:var(--muted);font-size:13px;margin-top:8px;line-height:1.5}
+  .mod .io{font-family:var(--font-m);font-size:11px;color:var(--faint);margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
+  .mod .io b{color:var(--mint);font-weight:500}
+
+  /* hiring flow */
+  .flow{display:grid;grid-template-columns:repeat(6,1fr);margin-top:4px}
+  .fstep{padding:0 10px;position:relative}
+  .fstep:not(:last-child)::after{content:"→";position:absolute;right:-7px;top:16px;color:var(--faint);font-size:16px}
+  .fstep .n{width:36px;height:36px;border-radius:10px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;font-family:var(--font-m);font-size:13px;color:var(--accent);margin-bottom:11px}
+  .fstep h4{font-family:var(--font-d);font-weight:600;font-size:13.5px}
+  .fstep p{color:var(--muted);font-size:12px;margin-top:5px;line-height:1.4}
+  @media(max-width:860px){.flow{grid-template-columns:repeat(2,1fr);gap:22px}.fstep::after{display:none}}
+
+  /* tables */
+  .twrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  thead th{font-family:var(--font-m);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:left;padding:12px 16px;background:var(--bg-2);border-bottom:1px solid var(--border)}
+  tbody td{padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  td.ag{font-family:var(--font-d);font-weight:600;color:var(--ink);white-space:nowrap}
+  td.mono{font-family:var(--font-m);font-size:12px;color:var(--muted)}
+  td.r{text-align:right;font-family:var(--font-m);white-space:nowrap}
+  .budgetbar{height:6px;border-radius:100px;background:var(--bg-2);border:1px solid var(--border);overflow:hidden;width:88px;display:inline-block;vertical-align:middle;margin-right:9px}
+  .budgetbar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--mint))}
+  .totalrow td{background:var(--bg-2);font-family:var(--font-m);color:var(--ink)}
+
+  /* governance */
+  .gov{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;align-items:start}
+  @media(max-width:820px){.gov{grid-template-columns:1fr}}
+  .authlist{display:flex;flex-direction:column;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+  .auth{display:flex;align-items:center;gap:13px;padding:14px 18px;border-bottom:1px solid var(--border)}
+  .auth:last-child{border-bottom:none}
+  .auth .v{font-family:var(--font-m);font-size:12px;color:var(--accent);width:74px;flex-shrink:0}
+  .auth b{font-family:var(--font-d);font-weight:600;font-size:14px;display:block}
+  .auth span{color:var(--muted);font-size:12.5px}
+  .govnote{background:linear-gradient(160deg,rgba(230,192,106,.08),var(--surface));border:1px solid rgba(230,192,106,.25);border-radius:var(--r);padding:22px}
+  .govnote h3{margin-bottom:8px}
+  .govnote p{color:var(--muted);font-size:13.5px;margin-top:8px}
+  .govnote .big{font-family:var(--font-m);font-size:13px;color:var(--gold);margin-top:14px;padding:11px 13px;border:1px solid rgba(230,192,106,.25);border-radius:9px;background:rgba(230,192,106,.06);line-height:1.5}
+
+  /* interfaces */
+  .io2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.io2{grid-template-columns:1fr}}
+  .iocard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+  .iocard h3{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+  .iocard h3 .d{width:8px;height:8px;border-radius:50%}
+  .iocard.in h3 .d{background:var(--accent)} .iocard.out h3 .d{background:var(--mint)}
+  .evt{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .evt:last-child{border-bottom:none}
+  .evt code{font-family:var(--font-m);font-size:12px;color:var(--ink);background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:3px 8px;white-space:nowrap}
+  .evt span{color:var(--muted);font-size:12.5px}
+
+  /* lifecycle */
+  .life{display:flex;gap:0;flex-wrap:wrap;margin-top:6px}
+  .lstep{flex:1;min-width:120px;padding:0 10px;position:relative}
+  .lstep:not(:last-child)::after{content:"→";position:absolute;right:-7px;top:18px;color:var(--faint);font-size:16px}
+  .lstep .dot{width:40px;height:40px;border-radius:11px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;font-family:var(--font-m);font-size:13px;color:var(--accent);margin-bottom:12px}
+  .lstep h4{font-family:var(--font-d);font-weight:600;font-size:13.5px}
+  .lstep p{color:var(--muted);font-size:12px;margin-top:5px;line-height:1.4}
+  @media(max-width:760px){.life{flex-direction:column;gap:14px}.lstep::after{display:none}.lstep{padding:0}}
+
+  footer{margin-top:62px;border-top:1px solid var(--border);padding:44px 0 72px}
+  .nav2{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+  .navbtn{font-family:var(--font-m);font-size:13px;text-decoration:none;border:1px solid var(--border-strong);border-radius:10px;padding:13px 18px;color:var(--ink);transition:all .16s;display:flex;flex-direction:column;gap:3px}
+  .navbtn:hover{background:var(--accent);color:#0b0d11;border-color:var(--accent)}
+  .navbtn .k{font-family:var(--font-m);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .navbtn:hover .k{color:#0b0d11}
+  .foot-note{color:var(--faint);font-size:13px;margin-top:30px;font-family:var(--font-m)}
+  .divider{height:1px;background:var(--border);max-width:var(--maxw);margin:6px auto}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">component</a>&nbsp; / &nbsp;<b>Principal / Orchestrator</b></div>
+    <span class="pill">component 02</span>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Component architecture · 02 of n</div>
+  <h1>The Principal is the <span class="grad">manager.</span></h1>
+  <p class="lede">Where a faculty agent optimizes one subject, the Principal sits a level up — a hierarchical-RL <b style="color:var(--ink);font-weight:500">manager</b>. It reads your intent, hires the faculty, and hands each agent a sub-goal, a reward shape, and a budget. Its own reward is the only one that counts in the end: <b style="color:var(--ink);font-weight:500">your mastery</b>.</p>
+  <div class="tags">
+    <span class="tag"><b>role</b><span class="eq">=</span>manager / orchestrator</span>
+    <span class="tag"><b>reward</b><span class="eq">=</span>your overall mastery</span>
+    <span class="tag"><b>sets</b><span class="eq">=</span>sub-goals · rewards · budgets</span>
+    <span class="tag"><b>governs</b><span class="eq">=</span>hire · pause · replace</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<!-- HIERARCHY -->
+<section class="wrap" data-screen-label="Hierarchy">
+  <div class="sec-head">
+    <div class="eyebrow">The hierarchy</div>
+    <h2>You set the mandate. It sets everyone else's.</h2>
+    <p>Three tiers of control. The board (you) governs the Principal; the Principal governs the faculty — passing goals and rewards down, pulling state and outcomes up.</p>
+  </div>
+
+  <div class="hier">
+    <div class="node board">
+      <div class="tagrl">board · authority</div>
+      <h3>You</h3>
+      <div class="sub">Approve the plan, override anything, define the goal.</div>
+    </div>
+
+    <div class="vlink">
+      <div class="vcol down"><div class="lab"><b>mandate</b><br/>goal · approval</div><div class="line"></div></div>
+      <div class="vcol up"><div class="lab"><b>reports</b><br/>plan · outcomes</div><div class="line"></div></div>
+    </div>
+
+    <div class="node principal">
+      <div class="tagrl">manager · π</div>
+      <h3>Principal</h3>
+      <div class="sub">Reads intent, hires the org, assigns goals, rewards &amp; budgets, and monitors the whole college.</div>
+      <div class="chips"><span>intent parser</span><span>org designer</span><span>reward allocator</span><span>budget governor</span><span>governance</span></div>
+    </div>
+
+    <div class="vlink">
+      <div class="vcol down"><div class="lab"><b>goal gₜ</b><br/>+ reward shape + budget</div><div class="line"></div></div>
+      <div class="vcol up"><div class="lab"><b>state</b><br/>grade · progress · cost</div><div class="line"></div></div>
+    </div>
+
+    <div class="workers">
+      <div class="worker"><div class="wt">Provost</div><div class="wr">methodology</div></div>
+      <div class="worker"><div class="wt">Faculty ×N</div><div class="wr">teach a subject</div></div>
+      <div class="worker"><div class="wt">Examiner</div><div class="wr">assess</div></div>
+      <div class="worker"><div class="wt">Registrar</div><div class="wr">records</div></div>
+      <div class="worker"><div class="wt">Guide</div><div class="wr">route doubts</div></div>
+      <div class="worker"><div class="wt">Counselor</div><div class="wr">pacing</div></div>
+    </div>
+  </div>
+
+  <p class="hnote">This is <b>feudal / manager–worker RL</b>: the Principal doesn't teach. It picks <b>which</b> agents exist and <b>what</b> they each optimize — so the whole college's reward stays aligned to one return, your mastery.</p>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- MODULES -->
+<section class="wrap" data-screen-label="Inside the orchestrator">
+  <div class="sec-head">
+    <div class="eyebrow">Inside the orchestrator</div>
+    <h2>What the box contains.</h2>
+    <p>Eight modules — from reading your sentence at intake to replacing a teacher who keeps failing you.</p>
+  </div>
+  <div class="grid g4">
+    <div class="mod"><div class="ix">M1<span class="badge">intake</span></div><h3>Intent Parser</h3><p>Turns "I want to learn X" + your level into a structured learning mission with scope, depth &amp; an outcome.</p><div class="io">from · <b>intake screen</b></div></div>
+    <div class="mod"><div class="ix">M2<span class="badge">hiring</span></div><h3>Org Designer</h3><p>Decides which roles and how many faculty the mission needs — drafts the org chart before anyone is hired.</p><div class="io">reads · <b>domain library</b></div></div>
+    <div class="mod"><div class="ix">M3<span class="badge">alignment</span></div><h3>Reward Allocator</h3><p>Gives every agent a sub-goal and reward weights that trace back to your mission. The alignment layer.</p><div class="io">writes · <b>each agent</b></div></div>
+    <div class="mod"><div class="ix">M4<span class="badge">cost</span></div><h3>Budget Governor</h3><p>Sets a token budget per agent and the LLM each runs on. Enforces caps; pauses an agent at its limit.</p><div class="io">via · <b>connection layer</b></div></div>
+    <div class="mod"><div class="ix">M5<span class="badge">monitor</span></div><h3>Roster Monitor</h3><p>Watches faculty grades, learner progress and spend across the whole college in one view.</p><div class="io">from · <b>event bus</b></div></div>
+    <div class="mod"><div class="ix">M6<span class="badge">authority</span></div><h3>Governance Gate</h3><p>Holds the power to pause, resume, reassign or replace any agent — and gates its own hires on your approval.</p><div class="io">answers to · <b>you</b></div></div>
+    <div class="mod"><div class="ix">M7<span class="badge">escalation</span></div><h3>Escalation Handler</h3><p>Receives escalations from agents (a stuck unit, a failing teacher) and decides the intervention.</p><div class="io">in · <b>agent.escalation</b></div></div>
+    <div class="mod"><div class="ix">M8<span class="badge">board</span></div><h3>Board Interface</h3><p>Surfaces the proposed college to you for review, and applies your overrides before anything goes live.</p><div class="io">to · <b>review screen</b></div></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- HIRING FLOW -->
+<section class="wrap" data-screen-label="Hiring">
+  <div class="sec-head">
+    <div class="eyebrow">The hiring decision</div>
+    <h2>From one sentence to a staffed college.</h2>
+    <p>The opening act — the sequence you watch happen live before you ever approve it.</p>
+  </div>
+  <div class="flow">
+    <div class="fstep"><div class="n">1</div><h4>Parse intent</h4><p>Goal, level &amp; desired outcome become a mission.</p></div>
+    <div class="fstep"><div class="n">2</div><h4>Derive subjects</h4><p>Break the mission into the subjects it requires.</p></div>
+    <div class="fstep"><div class="n">3</div><h4>Select roles</h4><p>Map subjects → faculty + support roles to hire.</p></div>
+    <div class="fstep"><div class="n">4</div><h4>Load context</h4><p>Pull a curated pack, or auto-generate one.</p></div>
+    <div class="fstep"><div class="n">5</div><h4>Assign LLM + budget</h4><p>Pick a model &amp; spend cap per agent.</p></div>
+    <div class="fstep"><div class="n">6</div><h4>Propose</h4><p>Hand the staffed college to you to review.</p></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- REWARD SHAPING -->
+<section class="wrap" data-screen-label="Reward shaping">
+  <div class="sec-head">
+    <div class="eyebrow">Goal &amp; reward shaping</div>
+    <h2>One mission, decomposed into aligned rewards.</h2>
+    <p>The Principal's core trick: split your mission into sub-goals and give each agent a reward that, when maximized, advances the whole. Example mission — <b style="color:var(--ink);font-weight:500">"Become job-ready in backend Python."</b></p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Agent</th><th>Sub-goal it's given</th><th>Reward signal</th></tr></thead>
+      <tbody>
+        <tr><td class="ag">APIs Professor</td><td class="mono">Learner can design &amp; ship a REST service</td><td class="mono">+ on passed endpoint tasks</td></tr>
+        <tr><td class="ag">Databases Professor</td><td class="mono">Learner models &amp; queries data well</td><td class="mono">+ on schema &amp; query mastery</td></tr>
+        <tr><td class="ag">Provost</td><td class="mono">Keep faculty methodology effective</td><td class="mono">+ on faculty grade recovery</td></tr>
+        <tr><td class="ag">Examiner</td><td class="mono">Assessment is accurate &amp; calibrated</td><td class="mono">+ on pass-bar reliability</td></tr>
+        <tr><td class="ag">Personal Guide</td><td class="mono">Minimize unresolved doubts</td><td class="mono">+ on fast, correct routing</td></tr>
+        <tr><td class="ag">Counselor</td><td class="mono">Keep the learner engaged, not burnt out</td><td class="mono">+ on sustained momentum</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- BUDGET -->
+<section class="wrap" data-screen-label="Budget">
+  <div class="sec-head">
+    <div class="eyebrow">Cost governance</div>
+    <h2>Every agent has a model and a cap.</h2>
+    <p>The Principal picks the LLM per role and a monthly token budget. Hit the cap and the agent pauses — no runaway spend, the cost stays the learner's to see and govern.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Agent</th><th>Model</th><th style="text-align:right">Budget used</th></tr></thead>
+      <tbody>
+        <tr><td class="ag">Principal</td><td class="mono">strong reasoner</td><td class="r"><span class="budgetbar"><i style="width:40%"></i></span>$24 / $60</td></tr>
+        <tr><td class="ag">APIs Professor</td><td class="mono">balanced</td><td class="r"><span class="budgetbar"><i style="width:62%"></i></span>$31 / $50</td></tr>
+        <tr><td class="ag">Databases Professor</td><td class="mono">balanced</td><td class="r"><span class="budgetbar"><i style="width:48%"></i></span>$24 / $50</td></tr>
+        <tr><td class="ag">Examiner</td><td class="mono">strong reasoner</td><td class="r"><span class="budgetbar"><i style="width:30%"></i></span>$12 / $40</td></tr>
+        <tr><td class="ag">Personal Guide</td><td class="mono">fast &amp; cheap</td><td class="r"><span class="budgetbar"><i style="width:55%"></i></span>$11 / $20</td></tr>
+        <tr class="totalrow"><td class="ag" style="color:var(--ink)">Total</td><td class="mono"></td><td class="r">$102 / $220</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- GOVERNANCE -->
+<section class="wrap" data-screen-label="Governance">
+  <div class="sec-head">
+    <div class="eyebrow">Governance · the board</div>
+    <h2>The Principal answers to you.</h2>
+    <p>Autonomy is granted, not assumed. The Principal can act on the faculty, but it can't act on the college's shape without your sign-off.</p>
+  </div>
+  <div class="gov">
+    <div class="authlist">
+      <div class="auth"><span class="v">approve</span><div><b>Hires &amp; the plan</b><span>No faculty goes live until you approve the proposed college.</span></div></div>
+      <div class="auth"><span class="v">override</span><div><b>Strategy</b><span>Swap a subject, change the pace, redefine the goal — anytime.</span></div></div>
+      <div class="auth"><span class="v">pause</span><div><b>Any agent</b><span>Freeze a teacher or the whole college on demand.</span></div></div>
+      <div class="auth"><span class="v">reassign</span><div><b>Roles &amp; budgets</b><span>Move work, raise or cut an agent's spend cap.</span></div></div>
+      <div class="auth"><span class="v">replace</span><div><b>A failing teacher</b><span>Retire a professor whose grade won't recover; hire a new one.</span></div></div>
+    </div>
+    <div class="govnote">
+      <h3>Who can do what</h3>
+      <p>The Principal acts <i>downward</i> on faculty freely — pause, reassign, push a methodology update. It acts <i>outward</i> on the college's shape only with your approval.</p>
+      <div class="big">Principal → faculty: autonomous.<br/>Principal → college shape: board-gated.</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- INTERFACES -->
+<section class="wrap" data-screen-label="Interfaces">
+  <div class="sec-head">
+    <div class="eyebrow">Interfaces · the contract</div>
+    <h2>What it consumes, what it emits.</h2>
+    <p>The orchestrator's integration surface on the event bus.</p>
+  </div>
+  <div class="io2">
+    <div class="iocard in">
+      <h3><span class="d"></span>Subscribes&nbsp;·&nbsp;inputs</h3>
+      <div class="evt"><code>intake.submitted</code><span>the learner's goal &amp; level</span></div>
+      <div class="evt"><code>agent.escalation</code><span>a stuck or failing agent</span></div>
+      <div class="evt"><code>grade.changed</code><span>faculty performance moved</span></div>
+      <div class="evt"><code>budget.threshold</code><span>an agent near its cap</span></div>
+      <div class="evt"><code>board.directive</code><span>your approval or override</span></div>
+    </div>
+    <div class="iocard out">
+      <h3><span class="d"></span>Emits&nbsp;·&nbsp;outputs</h3>
+      <div class="evt"><code>plan.proposed</code><span>staffed college, for review</span></div>
+      <div class="evt"><code>agent.hired</code><span>a new agent spun up</span></div>
+      <div class="evt"><code>goal.assigned</code><span>sub-goal + reward to an agent</span></div>
+      <div class="evt"><code>budget.set</code><span>spend cap per agent</span></div>
+      <div class="evt"><code>agent.replaced</code><span>a teacher retired &amp; re-hired</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- LIFECYCLE -->
+<section class="wrap" data-screen-label="Lifecycle">
+  <div class="sec-head">
+    <div class="eyebrow">Lifecycle</div>
+    <h2>Intake once. Then it never stops managing.</h2>
+    <p>A one-time build, then a standing loop of monitoring and intervention for as long as you're enrolled.</p>
+  </div>
+  <div class="life">
+    <div class="lstep"><div class="dot">1</div><h4>Intake</h4><p>Parse the goal into a mission.</p></div>
+    <div class="lstep"><div class="dot">2</div><h4>Design</h4><p>Draft the org, goals, budgets.</p></div>
+    <div class="lstep"><div class="dot">3</div><h4>Propose</h4><p>Hand the plan to you to approve.</p></div>
+    <div class="lstep"><div class="dot">4</div><h4>Hire</h4><p>Spin up the approved faculty.</p></div>
+    <div class="lstep"><div class="dot">5</div><h4>Monitor</h4><p>Watch grades, progress &amp; cost.</p></div>
+    <div class="lstep"><div class="dot">6</div><h4>Intervene</h4><p>Pause, replace, or re-budget.</p></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Component 02 complete</div>
+  <h2 style="font-size:24px">Next: the agent it leans on most.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Provost is the Principal's specialist — it's who actually computes a faculty agent's policy update when reward drops.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Component - Faculty Agent.html"><span class="k">component 01</span>Faculty Agent</a>
+  </div>
+  <p class="foot-note">AULA · Component 02 · Principal / Orchestrator · hierarchical-RL framing — the manager sets goals &amp; rewards, it doesn't teach.</p>
+</footer>
+
+</body>
+</html>

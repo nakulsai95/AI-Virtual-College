@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Provost Architecture</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">component</a>&nbsp; / &nbsp;<b>Provost</b></div>
+    <span class="pill">component 03</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Component architecture · 03 of n</div>
+  <h1>The Provost is the <span class="grad">optimizer.</span></h1>
+  <p class="lede">When a faculty agent's reward falls, something has to change its policy. That's the Provost: it watches teaching outcomes, diagnoses <i>why</i> a teacher is failing the learner, and ships a rewritten methodology. It is the <b class="ink">policy-update operator</b> for every professor in the college.</p>
+  <div class="tags">
+    <span class="tag"><b>role</b><span class="eq">=</span>policy-update engine</span>
+    <span class="tag"><b>input</b><span class="eq">=</span>faculty reward + traces</span>
+    <span class="tag"><b>output</b><span class="eq">=</span>new methodology doc</span>
+    <span class="tag"><b>not</b><span class="eq">=</span>weight updates</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Pipeline">
+  <div class="sec-head">
+    <div class="eyebrow">The update pipeline</div>
+    <h2>Detect → diagnose → rewrite → ship → watch.</h2>
+    <p>The Provost runs whenever a teacher's cumulative reward over a unit drops below threshold. It never touches model weights — it edits the methodology the policy is conditioned on.</p>
+  </div>
+  <div class="split">
+    <div class="pipe">
+      <div class="pstep"><div class="pn">1</div><div class="pc"><b>Detect</b><span>Σ reward for a unit falls below the bar, or a mid-term is failed.</span></div></div>
+      <div class="pstep"><div class="pn">2</div><div class="pc"><b>Diagnose</b><span>Read the lesson traces &amp; probe history to classify the failure mode.</span></div></div>
+      <div class="pstep"><div class="pn">3</div><div class="pc"><b>Select intervention</b><span>Pick the fix from the intervention library that targets that mode.</span></div></div>
+      <div class="pstep"><div class="pn">4</div><div class="pc"><b>Compose methodology</b><span>Write a new versioned methodology doc — concrete, structured deltas.</span></div></div>
+      <div class="pstep"><div class="pn">5</div><div class="pc"><b>Ship</b><span>Dispatch to the agent's Update Hook; bump its policy version.</span></div></div>
+      <div class="pstep"><div class="pn">6</div><div class="pc"><b>Track recovery</b><span>Watch the next unit's reward; revert or iterate if it doesn't lift.</span></div></div>
+    </div>
+    <div class="callout accent">
+      <h3>Why methodology, not weights</h3>
+      <p>Fine-tuning a model per student is slow, costly and opaque. AULA keeps the LLM fixed and treats the <b class="ink">methodology document</b> as the editable policy. Updates are instant, legible, and reversible.</p>
+      <div class="big">policy = LLM (fixed) + methodology (edited by Provost)</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Modules">
+  <div class="sec-head">
+    <div class="eyebrow">Inside the Provost</div>
+    <h2>Six modules.</h2>
+  </div>
+  <div class="grid g3">
+    <div class="mod"><div class="ix">M1<span class="badge">monitor</span></div><h3>Reward Monitor</h3><p>Tracks every faculty agent's running reward &amp; grade; fires when one crosses the low threshold.</p><div class="io">from · <b>event bus</b></div></div>
+    <div class="mod"><div class="ix">M2<span class="badge">diagnose</span></div><h3>Failure Diagnoser</h3><p>Inspects lesson traces, probe misses &amp; exam errors to label the root cause, not the symptom.</p><div class="io">reads · <b>traces + student model</b></div></div>
+    <div class="mod"><div class="ix">M3<span class="badge">library</span></div><h3>Intervention Library</h3><p>A catalogue of teaching fixes, each mapped to a failure mode and a methodology delta.</p><div class="io">curated · <b>+ learned</b></div></div>
+    <div class="mod"><div class="ix">M4<span class="badge">compose</span></div><h3>Methodology Composer</h3><p>Generates the new methodology doc from the chosen intervention — versioned &amp; diff-able.</p><div class="io">writes · <b>methodology vN</b></div></div>
+    <div class="mod"><div class="ix">M5<span class="badge">dispatch</span></div><h3>Update Dispatcher</h3><p>Sends the doc to the agent's Update Hook and records the change in the audit log.</p><div class="io">emits · <b>methodology.update</b></div></div>
+    <div class="mod"><div class="ix">M6<span class="badge">verify</span></div><h3>Recovery Tracker</h3><p>Compares reward before vs. after; rolls back or escalates to the Principal if it fails to recover.</p><div class="io">may · <b>revert</b></div></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Diagnosis">
+  <div class="sec-head">
+    <div class="eyebrow">Diagnosis → intervention</div>
+    <h2>The failure-mode catalogue.</h2>
+    <p>The diagnoser maps an observed pattern to a root cause, and the library maps that cause to a concrete methodology change.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Observed pattern</th><th>Diagnosed cause</th><th>Intervention applied</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">Fails probes right after reading</td><td class="ag">No practice bridge</td><td class="mono">Insert worked examples before probing</td></tr>
+        <tr><td class="mono">Strong early, collapses on exam</td><td class="ag">Pacing too fast</td><td class="mono">Slow the unit; add spaced revision</td></tr>
+        <tr><td class="mono">Disengages, attendance drops</td><td class="ag">Wrong modality / too dense</td><td class="mono">Split blogs; add images &amp; shorter steps</td></tr>
+        <tr><td class="mono">Confuses prerequisite concepts</td><td class="ag">Missing foundation</td><td class="mono">Back-fill a prerequisite mini-unit</td></tr>
+        <tr><td class="mono">Right answers, wrong reasoning</td><td class="ag">Pattern-matching, not understanding</td><td class="mono">Add Socratic probes &amp; "explain why"</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Methodology schema">
+  <div class="sec-head">
+    <div class="eyebrow">The methodology document</div>
+    <h2>What the Provost actually edits.</h2>
+    <p>The unit of change. Each field is a knob; an update is a diff on these. This is the schema Claude Code should model.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Field</th><th>Type</th><th>What it controls</th></tr></thead>
+      <tbody>
+        <tr><td><code class="k">pacing</code></td><td class="mono">enum slow|normal|fast</td><td class="mono">Time spent per concept</td></tr>
+        <tr><td><code class="k">sequence</code></td><td class="mono">concept[]</td><td class="mono">Order concepts are taught</td></tr>
+        <tr><td><code class="k">modalityMix</code></td><td class="mono">{blog,image,anim,video}%</td><td class="mono">Format blend per lesson</td></tr>
+        <tr><td><code class="k">exampleDensity</code></td><td class="mono">float 0–1</td><td class="mono">Worked examples per concept</td></tr>
+        <tr><td><code class="k">probeTiming</code></td><td class="mono">enum after-read|after-practice</td><td class="mono">When questions are asked</td></tr>
+        <tr><td><code class="k">difficultyCurve</code></td><td class="mono">number[]</td><td class="mono">Ramp across the unit</td></tr>
+        <tr><td><code class="k">prerequisites</code></td><td class="mono">unitRef[]</td><td class="mono">Back-fill units to inject</td></tr>
+        <tr><td><code class="k">version</code></td><td class="mono">int</td><td class="mono">Increments on every update</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Interfaces">
+  <div class="sec-head">
+    <div class="eyebrow">Interfaces · the contract</div>
+    <h2>What it consumes, what it emits.</h2>
+  </div>
+  <div class="io2">
+    <div class="iocard in">
+      <h3><span class="d"></span>Subscribes&nbsp;·&nbsp;inputs</h3>
+      <div class="evt"><code>grade.changed</code><span>a faculty grade dropped</span></div>
+      <div class="evt"><code>exam.result</code><span>a failed unit to react to</span></div>
+      <div class="evt"><code>lesson.trace</code><span>what was taught &amp; how it landed</span></div>
+      <div class="evt"><code>principal.directive</code><span>forced review of an agent</span></div>
+    </div>
+    <div class="iocard out">
+      <h3><span class="d"></span>Emits&nbsp;·&nbsp;outputs</h3>
+      <div class="evt"><code>methodology.update</code><span>new policy doc to a teacher</span></div>
+      <div class="evt"><code>methodology.reverted</code><span>rollback when recovery fails</span></div>
+      <div class="evt"><code>escalation.raised</code><span>asks Principal to replace agent</span></div>
+      <div class="evt"><code>audit.logged</code><span>immutable record of the change</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Component 03 complete</div>
+  <h2 style="font-size:24px">Next: the agent that triggers it.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Examiner produces the pass/fail signal that sets the whole reward — and the failure that wakes the Provost.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Component - Faculty Agent.html"><span class="k">component 01</span>Faculty Agent</a>
+    <a class="navbtn" href="Component - Principal Orchestrator.html"><span class="k">component 02</span>Principal</a>
+  </div>
+  <p class="foot-note">AULA · Component 03 · Provost · the policy-update operator — edits methodology, never weights.</p>
+</footer>
+
+</body>
+</html>

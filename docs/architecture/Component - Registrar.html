@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Registrar Architecture</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">component</a>&nbsp; / &nbsp;<b>Registrar</b></div>
+    <span class="pill">component 06</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Component architecture · 06 of n</div>
+  <h1>The Registrar is the <span class="grad">state store.</span></h1>
+  <p class="lede">Every agent acts on a shared picture of you — what you've mastered, when you showed up, how you're trending. The Registrar owns that picture. It logs attendance as the college's heartbeat, keeps the transcript, and serves the <b class="ink">student model</b> that is the environment's state, <code class="k">sₜ</code>.</p>
+  <div class="tags">
+    <span class="tag"><b>role</b><span class="eq">=</span>records + student model</span>
+    <span class="tag"><b>owns</b><span class="eq">=</span>attendance · transcript</span>
+    <span class="tag"><b>serves</b><span class="eq">=</span>state to all agents</span>
+    <span class="tag"><b>attendance</b><span class="eq">=</span>heartbeats</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Heartbeats">
+  <div class="sec-head">
+    <div class="eyebrow">Attendance as heartbeats</div>
+    <h2>Showing up is a signal.</h2>
+    <p>Paperclip's agent heartbeats become class attendance. Scheduled sessions produce presence events; presence over time produces momentum, which feeds the reward loop.</p>
+  </div>
+  <div class="split">
+    <div class="pipe">
+      <div class="pstep"><div class="pn">1</div><div class="pc"><b>Schedule</b><span>Sessions are placed on the academic calendar per the curriculum.</span></div></div>
+      <div class="pstep"><div class="pn">2</div><div class="pc"><b>Log presence</b><span>Each session attended (or missed) is recorded as an event.</span></div></div>
+      <div class="pstep"><div class="pn">3</div><div class="pc"><b>Derive momentum</b><span>Streaks &amp; recency roll up into a momentum score.</span></div></div>
+      <div class="pstep"><div class="pn">4</div><div class="pc"><b>Feed the loop</b><span>Stalled momentum becomes a small teacher penalty + a Counselor nudge.</span></div></div>
+    </div>
+    <div class="callout accent">
+      <h3>Why the Registrar is read-heavy</h3>
+      <p>Faculty, Examiner, Guide and Counselor all <i>observe</i> before they act. Centralizing state in the Registrar means every agent sees the same <code class="k">sₜ</code> — no drift, one truth.</p>
+      <div class="big">one student model · many readers · one writer</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Modules">
+  <div class="sec-head"><div class="eyebrow">Inside the Registrar</div><h2>Six modules.</h2></div>
+  <div class="grid g3">
+    <div class="mod"><div class="ix">M1<span class="badge">attendance</span></div><h3>Attendance Tracker</h3><p>Logs every scheduled session as present / absent / late; the heartbeat ledger.</p><div class="io">emits · <b>attendance.tick</b></div></div>
+    <div class="mod"><div class="ix">M2<span class="badge">enrollment</span></div><h3>Enrollment Manager</h3><p>Owns enrolled / re-enrolled / graduated status per unit &amp; the whole program.</p><div class="io">on · <b>reenroll.triggered</b></div></div>
+    <div class="mod"><div class="ix">M3<span class="badge">transcript</span></div><h3>Transcript Ledger</h3><p>Append-only record of every exam result, grade &amp; milestone. The official history.</p><div class="io">immutable · <b>audit</b></div></div>
+    <div class="mod"><div class="ix">M4<span class="badge">state</span></div><h3>Student-Model Store</h3><p>The live mastery / history / preference object every agent observes.</p><div class="io">schema · <b>see C4</b></div></div>
+    <div class="mod"><div class="ix">M5<span class="badge">derive</span></div><h3>Momentum Calculator</h3><p>Computes streaks, recency &amp; pace into a single momentum score.</p><div class="io">feeds · <b>reward + Counselor</b></div></div>
+    <div class="mod"><div class="ix">M6<span class="badge">serve</span></div><h3>Query API</h3><p>The read interface other agents call to fetch the slice of state they need.</p><div class="io">reads · <b>cached</b></div></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Records">
+  <div class="sec-head"><div class="eyebrow">What it keeps</div><h2>The records of record.</h2>
+    <p>Deep field-level schema is specified in subsystem <b class="ink">C4 · Student Model</b>; the Registrar is its owner &amp; gatekeeper.</p></div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Record</th><th>Shape</th><th>Read by</th></tr></thead>
+      <tbody>
+        <tr><td class="ag">Enrollment</td><td class="mono">status per unit + program</td><td class="mono">Principal, Examiner</td></tr>
+        <tr><td class="ag">Attendance</td><td class="mono">session[] + momentum score</td><td class="mono">Faculty, Counselor</td></tr>
+        <tr><td class="ag">Transcript</td><td class="mono">result[] (append-only)</td><td class="mono">Examiner, Career engine</td></tr>
+        <tr><td class="ag">Mastery</td><td class="mono">concept → level map</td><td class="mono">Faculty, Guide</td></tr>
+        <tr><td class="ag">Rank &amp; XP</td><td class="mono">tier + points</td><td class="mono">Reward system, UI</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Interfaces">
+  <div class="sec-head"><div class="eyebrow">Interfaces · the contract</div><h2>What it consumes, what it emits.</h2></div>
+  <div class="io2">
+    <div class="iocard in">
+      <h3><span class="d"></span>Subscribes&nbsp;·&nbsp;inputs</h3>
+      <div class="evt"><code>session.attended</code><span>presence to log</span></div>
+      <div class="evt"><code>exam.result</code><span>transcript entry</span></div>
+      <div class="evt"><code>mastery.updated</code><span>a concept level changed</span></div>
+      <div class="evt"><code>reenroll.triggered</code><span>enrollment change</span></div>
+    </div>
+    <div class="iocard out">
+      <h3><span class="d"></span>Emits&nbsp;·&nbsp;outputs</h3>
+      <div class="evt"><code>attendance.tick</code><span>presence + momentum</span></div>
+      <div class="evt"><code>enrollment.changed</code><span>status transitions</span></div>
+      <div class="evt"><code>transcript.updated</code><span>new official record</span></div>
+      <div class="evt"><code>student.model</code><span>served on request</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Component 06 complete</div>
+  <h2 style="font-size:24px">Next: the guardian.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Counselor reads momentum &amp; sentiment to protect the learner from burnout.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Component - Personal Guide.html"><span class="k">component 05</span>Personal Guide</a>
+  </div>
+  <p class="foot-note">AULA · Component 06 · Registrar · one writer, many readers — the college's single source of truth.</p>
+</footer>
+
+</body>
+</html>
