@@ -115,12 +115,18 @@ function TeacherBoard({ terms, data }){
 
 /* ---------- Faculty Grades ---------- */
 function FacultyGrades({ terms, data }){
+  const { useState, useEffect } = React;
+  const [live,setLive] = useState(null);
+  useEffect(()=>{ if(window.AULA_API) window.AULA_API.faculty().then(setLive).catch(()=>{}); },[]);
+  const grades = (live && live.professors && live.professors.length)
+    ? live.professors.map(p=>({ id:p.id, name:p.name, subject:p.subject, letter:p.letter, score:p.score, trend:p.trend, version:p.version, history:p.history, note:p.note }))
+    : data.GRADES;
   return (
     <div className="screen-pad">
       <h1 style={{fontSize:26}}>Faculty Grades</h1>
       <p className="muted" style={{fontSize:14,marginTop:4,marginBottom:20}}>Teachers are graded on whether <b style={{color:'var(--ink)'}}>you</b> learn. Reward history, last 10 signals.</p>
       <div className="grid" style={{gridTemplateColumns:'1fr 1fr'}}>
-        {data.GRADES.map(g=>{
+        {grades.map(g=>{
           const hue = g.id==='prof-api'?'#f5a623':'#3b82f6';
           return (
             <div key={g.id} className="card grade-card">
@@ -149,8 +155,16 @@ function FacultyGrades({ terms, data }){
 
 /* ---------- Command Center ---------- */
 function CommandCenter({ terms, data }){
-  const totalUsed = data.FACULTY.reduce((a,f)=>a+f.budget.used,0);
-  const totalCap = data.FACULTY.reduce((a,f)=>a+f.budget.cap,0);
+  const { useState, useEffect } = React;
+  const [live,setLive] = useState(null);
+  useEffect(()=>{ if(window.AULA_API) window.AULA_API.faculty().then(setLive).catch(()=>{}); },[]);
+  const feed = (live && live.feed && live.feed.length) ? live.feed : data.FEED;
+  const gradeFor = (f)=>{
+    if(live && live.professors){ const p=live.professors.find(p=>p.name===f.name||p.id===f.id); if(p) return {letter:p.letter,score:p.score}; }
+    return f.grade;
+  };
+  const totalUsed = data.FACULTY.reduce((a,f)=>a+(f.budget?f.budget.used:0),0);
+  const totalCap = data.FACULTY.reduce((a,f)=>a+(f.budget?f.budget.cap:0),0);
   return (
     <div className="screen-pad wide">
       <div className="row" style={{justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
@@ -168,19 +182,19 @@ function CommandCenter({ terms, data }){
               <Avatar name={f.name} hue={f.hue} size={32} sq />
               <div style={{flex:1,minWidth:0}}><b style={{fontFamily:'var(--font-d)',fontSize:13.5}}>{f.name}</b> <span className="faint mono" style={{fontSize:11}}>{roleTermFor(f.role,terms)}{f.subject?' · '+f.subject:''}</span></div>
               <span className="faint mono cmd-model" style={{fontSize:11}}>{f.model}</span>
-              {f.grade ? <span className={"badge "+(f.grade.score>=80?'mint':'gold')}>{f.grade.letter}</span> : <span className="badge" style={{opacity:.5}}>—</span>}
-              <div className="cmd-budget"><div className="bar" style={{width:70}}><i style={{width:(f.budget.used/f.budget.cap*100)+'%'}}/></div><span className="faint mono" style={{fontSize:10}}>${f.budget.used}/{f.budget.cap}</span></div>
+              {(()=>{ const g=gradeFor(f); return g ? <span className={"badge "+(g.score>=80?'mint':'gold')}>{g.letter}</span> : <span className="badge" style={{opacity:.5}}>—</span>; })()}
+              <div className="cmd-budget"><div className="bar" style={{width:70}}><i style={{width:((f.budget?f.budget.used/f.budget.cap:0)*100)+'%'}}/></div><span className="faint mono" style={{fontSize:10}}>${f.budget?f.budget.used:0}/{f.budget?f.budget.cap:0}</span></div>
               <div className="cmd-actions"><button className="mini-btn">pause</button></div>
             </div>
           ))}
         </div>
         <div className="panel" style={{padding:16}}>
-          <div className="row" style={{justifyContent:'space-between',marginBottom:12}}><h3 style={{fontSize:15}}>Reward feed</h3><span className="badge accent mono">live</span></div>
+          <div className="row" style={{justifyContent:'space-between',marginBottom:12}}><h3 style={{fontSize:15}}>Reward feed</h3><span className="badge accent mono">{live?'live':'demo'}</span></div>
           <div className="col" style={{gap:2}}>
-            {data.FEED.map((f,i)=>(
+            {feed.map((f,i)=>(
               <div key={i} className="cmd-feed">
                 <span className="dot" style={{background:f.kind==='pos'?'var(--mint)':f.kind==='neg'?'var(--coral)':f.kind==='update'?'var(--accent)':'var(--faint)',marginTop:6}}/>
-                <div style={{flex:1}}><span style={{fontSize:12.5}}>{f.text}</span><div className="faint mono" style={{fontSize:10,marginTop:2}}>{f.who} · {f.t} ago</div></div>
+                <div style={{flex:1}}><span style={{fontSize:12.5}}>{f.text}</span><div className="faint mono" style={{fontSize:10,marginTop:2}}>{f.who} · {f.t}</div></div>
               </div>
             ))}
           </div>

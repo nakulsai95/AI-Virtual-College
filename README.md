@@ -112,10 +112,17 @@ The product is taking shape. Done so far, and what's next:
 - [x] **Real Principal orchestration** — intake → live curriculum generation
 - [x] **Topic/semester-driven sandboxes** — the Principal mounts the right
       environment per subject (SQL, Git, web search, Jupyter, shell…), not just Python
-- [ ] Per-subject Professor agents that author lessons on demand
-- [ ] Examiner grading + the reward loop that updates professor methodology
-- [ ] Real sandbox execution (run code in the mounted environment)
+- [x] **Professor agents** — author a lesson on demand (with a runnable code cell)
+- [x] **Examiner + reward loop** — grades your answer, rewards the *professor*
+      (not you); a failure triggers the **Provost** to rewrite their methodology
+- [x] **Real sandbox execution** — Python (isolated subprocess) and SQL (SQLite)
+      run live from the lesson; the Command Center shows the reward feed update
 - [ ] Persistent student model & progress diagnostics
 - [ ] Auth + multi-user storage
+- [ ] Hardened sandbox isolation (container/network) for untrusted code
+
+> ⚠️ The Python sandbox runs code in a subprocess with CPU/memory/time limits —
+> fine for local single-user dev, **not** a hardened multi-tenant boundary. Don't
+> expose it to the public internet without real container/network isolation.
 
 See `docs/architecture/Architecture Index.html` for the full design.

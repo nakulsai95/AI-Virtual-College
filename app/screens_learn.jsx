@@ -187,16 +187,35 @@ function LessonScreen({ terms, nav, data }){
   const L = data.LESSON;
   const [ans,setAns] = useStateL('');
   const [sent,setSent] = useStateL(false);
-  const STARTER = "import base64, json\n\ndef read_payload(token):\n    body = token.split('.')[1]\n    body += '=' * (-len(body) % 4)\n    return json.loads(base64.urlsafe_b64decode(body))\n\nprint(read_payload(SAMPLE_TOKEN))";
-  const [code,setCode] = useStateL(STARTER);
+  const [grade,setGrade] = useStateL(null);   // real Examiner result
+  const [grading,setGrading] = useStateL(false);
+  // Self-contained default so "Run" works for real against the Python sandbox.
+  const STARTER = "import base64, json\n\npayload = {\"sub\": 1024, \"name\": \"Alex\", \"exp\": 1735689600}\nencoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip(\"=\")\nprint(\"encoded:\", encoded)\n\nbody = encoded + \"=\" * (-len(encoded) % 4)\nprint(\"decoded:\", json.loads(base64.urlsafe_b64decode(body)))\n";
+  const sandbox = L.sandbox || 'python';
+  const [code,setCode] = useStateL(L.code_starter || STARTER);
   const [out,setOut] = useStateL(null);
   const [running,setRunning] = useStateL(false);
   function runCode(){
     setRunning(true); setOut(null);
-    setTimeout(()=>{
-      setRunning(false);
-      setOut("{'sub': '1024', 'name': 'Alex', 'exp': 1735689600}\n\n\u2713 decoded \u2014 and notice you never needed the secret to *read* the payload, only to *trust* it. That's the whole idea.");
-    }, 750);
+    if(window.AULA_API){
+      window.AULA_API.runCode(sandbox, code)
+        .then(r=>{ setRunning(false);
+          const txt = [(r.stdout||'').replace(/\s+$/,''), r.stderr?('\u2014 '+r.stderr.replace(/\s+$/,'')):''].filter(Boolean).join('\n');
+          setOut(txt || (r.ok?'(ran \u2014 no output)':'(error)')); })
+        .catch(()=>{ setRunning(false); setOut('Sandbox offline \u2014 start the backend (cd backend && ./run.sh) to run code for real.'); });
+      return;
+    }
+    setTimeout(()=>{ setRunning(false); setOut("{'sub': 1024, 'name': 'Alex', 'exp': 1735689600}\n\n\u2713 demo output \u2014 connect the backend to run for real."); }, 600);
+  }
+  function submitProbe(){
+    if(window.AULA_API){
+      setGrading(true);
+      window.AULA_API.grade({ kind:'probe', question:L.probe.q, answer:ans, bar:70, subject:L.subject, professor:L.author })
+        .then(r=>{ setGrade(r); setGrading(false); setSent(true); })
+        .catch(()=>{ setGrading(false); setSent(true); });
+      return;
+    }
+    setSent(true);
   }
   return (
     <div className="screen-pad">
@@ -218,32 +237,48 @@ function LessonScreen({ terms, nav, data }){
         <div className="codecell">
           <div className="cc-head">
             <span className="mono" style={{fontSize:12,color:'var(--muted)'}}>▶ Try it · test your understanding</span>
-            <span className="badge accent mono">python-mcp · sandbox</span>
+            <span className="badge accent mono">{sandbox} · sandbox</span>
           </div>
           <textarea className="cc-code" spellCheck={false} value={code} onChange={e=>setCode(e.target.value)} rows={7} />
           <div className="cc-actions">
-            <span className="faint mono" style={{fontSize:11}}>Runs in a real Python sandbox via MCP — read a JWT payload.</span>
+            <span className="faint mono" style={{fontSize:11}}>Runs in a real {sandbox} sandbox on your backend.</span>
             <button className="btn primary" onClick={runCode} disabled={running}>{running?'Running…':'▶ Run'}</button>
           </div>
           {out && <pre className="cc-out">{out}</pre>}
         </div>
 
         <div className="probe">
-          <div className="eyebrow" style={{marginBottom:10}}>{terms.professor} Mei asks · this affects her grade, not yours</div>
+          <div className="eyebrow" style={{marginBottom:10}}>{terms.professor} {L.author} asks · this affects their grade, not yours</div>
           <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:16,marginBottom:14}}>{L.probe.q}</div>
           {!sent ? (
             <React.Fragment>
               <textarea className="probe-input" rows={2} value={ans} onChange={e=>setAns(e.target.value)} placeholder="Type your answer…" />
               <div className="row" style={{justifyContent:'space-between',marginTop:10}}>
                 <span className="faint mono" style={{fontSize:11}}>Hint: {L.probe.hint}</span>
-                <button className="btn primary" onClick={()=>setSent(true)} disabled={!ans.trim()}>Submit answer</button>
+                <button className="btn primary" onClick={submitProbe} disabled={!ans.trim()||grading}>{grading?'Grading…':'Submit answer'}</button>
               </div>
             </React.Fragment>
           ) : (
             <div className="probe-fb">
-              <div className="row" style={{gap:10,marginBottom:8}}><Avatar name="Mei" hue="#f5a623" size={28}/><b style={{fontFamily:'var(--font-d)',fontSize:13.5}}>Mei</b><span className="badge mint">+1 reward · landed</span></div>
-              <p className="muted" style={{fontSize:13.5}}>Exactly the right instinct — you keep a small server-side denylist of revoked token ids, or use short expiries + refresh tokens. That’s the one thing the server still controls. Nice. On to the build.</p>
-              <button className="btn primary" style={{marginTop:14}} onClick={()=>nav('board')}>Next · {L.next} →</button>
+              {grade ? (
+                <React.Fragment>
+                  <div className="row" style={{gap:10,marginBottom:8,flexWrap:'wrap'}}>
+                    <Avatar name={L.author} hue="#f5a623" size={28}/><b style={{fontFamily:'var(--font-d)',fontSize:13.5}}>{L.author}</b>
+                    <span className={"badge "+(grade.passed?'mint':'coral')}>{grade.score}% · {grade.passed?'passed':'below bar'}</span>
+                    {grade.reward && <span className={"badge "+(grade.reward.delta>=0?'mint':'coral')+" mono"}>{grade.reward.delta>=0?'+':''}{grade.reward.delta} to {L.author}</span>}
+                    {grade.reward && grade.reward.methodology_changed && <span className="badge accent mono">Provost rewrote methodology · v{grade.reward.professor.version}</span>}
+                  </div>
+                  <p className="muted" style={{fontSize:13.5}}>{grade.feedback}</p>
+                  <p className="faint mono" style={{fontSize:11,marginTop:8}}>Remember: the reward landed on your teacher, never on you — that’s what keeps the faculty accountable.</p>
+                  <button className="btn primary" style={{marginTop:14}} onClick={()=>nav('board')}>Next · {L.next||'continue'} →</button>
+                </React.Fragment>
+              ) : (
+                <React.Fragment>
+                  <div className="row" style={{gap:10,marginBottom:8}}><Avatar name={L.author} hue="#f5a623" size={28}/><b style={{fontFamily:'var(--font-d)',fontSize:13.5}}>{L.author}</b><span className="badge mint">answer received</span></div>
+                  <p className="muted" style={{fontSize:13.5}}>Submitted. Connect a model in Connections to have the Examiner grade this for real.</p>
+                  <button className="btn primary" style={{marginTop:14}} onClick={()=>nav('board')}>Next · {L.next||'continue'} →</button>
+                </React.Fragment>
+              )}
             </div>
           )}
         </div>
@@ -262,8 +297,23 @@ function GuideScreen({ terms, nav, data }){
     if(!val.trim()) return;
     const q = val.trim(); setVal('');
     setMsgs(m=>[...m,{who:'user',text:q}]);
-    setTimeout(()=>setMsgs(m=>[...m,{who:'guide',name:terms.guide,text:'Good one — routing you to the right '+terms.professor.toLowerCase()+'. They’ll reply on your board shortly.'}]),500);
-    setTimeout(()=>setMsgs(m=>[...m,{who:'route',text:'Routed · '+terms.professor+' · APIs & Services'}]),1100);
+    const subj = (data.SUBJECTS && data.SUBJECTS[0]) || {};
+    const subject = subj.title || 'your subject';
+    const prof = subj.profName || terms.professor;
+    setTimeout(()=>setMsgs(m=>[...m,{who:'guide',name:terms.guide,text:'Good one — bringing in '+prof+' for '+subject+'. They’ll write you a lesson.'}]),400);
+    setTimeout(()=>setMsgs(m=>[...m,{who:'route',text:'Routed · '+terms.professor+' · '+subject}]),900);
+    // The Professor actually authors a lesson and drops it on your board.
+    if(window.AULA_API){
+      window.AULA_API.lesson(subject, q, prof, (subj.sandboxes && subj.sandboxes[0]) || 'python')
+        .then(out=>{
+          data.LESSON = out.lesson;  // dashboard "Continue" + board card open it
+          setMsgs(m=>[...m,
+            {who:'prof',name:out.lesson.author,hue:'#f5a623',text:'Done — I wrote “'+out.lesson.title+'”. Open it from your board or dashboard.'},
+            {who:'system',text:'New lesson added · '+out.lesson.title}
+          ]);
+        })
+        .catch(()=>{});
+    }
   }
   return (
     <div className="chat-wrap">
