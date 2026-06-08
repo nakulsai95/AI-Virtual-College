@@ -247,3 +247,9 @@
 .cc-code{width:100%;background:#0a0c10;border:none;color:#cfe3ff;font-family:var(--font-m);font-size:13px;line-height:1.6;padding:16px;resize:vertical;outline:none;display:block}
 .cc-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid var(--border)}
 .cc-out{font-family:var(--font-m);font-size:12.5px;line-height:1.6;color:var(--mint);background:rgba(70,214,173,.05);border-top:1px solid rgba(70,214,173,.2);padding:14px 16px;white-space:pre-wrap;margin:0}
+
+/* ===== Connections — connector form ===== */
+.conn-label{display:block;font-family:var(--font-m);font-size:11px;color:var(--faint);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.conn-input{width:100%;background:var(--surface-2);border:1px solid var(--border-strong);border-radius:10px;color:var(--ink);font-family:var(--font-b);font-size:14px;padding:10px 12px;outline:none}
+.conn-input:focus{border-color:var(--accent-line);box-shadow:0 0 0 3px var(--accent-soft)}
+select.conn-input{appearance:none;cursor:pointer}

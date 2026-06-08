@@ -12,6 +12,19 @@ function Onboarding({ terms, mark, onEnroll, themeSwitch }){
   const [goal, setGoal] = useStateO('');
   const [level, setLevel] = useStateO('intermediate');
 
+  // Kick off the real Principal (backend) when the learner hits "Build".
+  // The hiring animation plays while the curriculum is generated; if the
+  // backend is unavailable, the app keeps its built-in demo plan.
+  function build(){
+    const g = goal.trim() || 'Become job-ready in backend Python';
+    setPhase('hiring');
+    if(window.AULA_API){
+      window.AULA_API.onboard(g, level)
+        .then(out=>{ window.AULA_ONBOARD = out; window.applyCurriculum && window.applyCurriculum(out.curriculum); })
+        .catch(()=>{ /* offline / no backend — demo data stays */ });
+    }
+  }
+
   const stepNum = phase==='intake'?1:phase==='hiring'?2:3;
   return (
     <div className="onb">
@@ -22,7 +35,7 @@ function Onboarding({ terms, mark, onEnroll, themeSwitch }){
           {themeSwitch}
         </div>
       </div>
-      {phase==='intake' && <Intake {...{goal,setGoal,level,setLevel,terms,onBuild:()=>setPhase('hiring')}} />}
+      {phase==='intake' && <Intake {...{goal,setGoal,level,setLevel,terms,onBuild:build}} />}
       {phase==='hiring' && <Hiring {...{terms,goal,onDone:()=>setPhase('review')}} />}
       {phase==='review' && <Review {...{terms,goal,level,onEnroll,onBack:()=>setPhase('hiring')}} />}
     </div>
