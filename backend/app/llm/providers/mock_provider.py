@@ -22,8 +22,52 @@ class MockProvider(LLMProvider):
     def complete(self, system, messages, *, max_tokens=4000, json=False):
         if not json:
             return "pong"
+        sys_l = (system or "").lower()
         user = " ".join(m["content"] for m in messages if m["role"] == "user")
+        # Match the role's identity line, not stray mentions (the Principal's
+        # prompt also contains the word "professor").
+        if "you are the examiner" in sys_l:
+            return _demo_grade_json(_answer_of(messages))
+        if "you are a professor" in sys_l:
+            return _demo_lesson_json(user)
         return _demo_curriculum_json(_clean_goal(user))
+
+
+def _answer_of(messages) -> str:
+    text = " ".join(m["content"] for m in messages if m["role"] == "user")
+    import re
+    m = re.search(r"answer:\s*(.+?)(?:\n\nPass bar:|\Z)", text, re.IGNORECASE | re.DOTALL)
+    return (m.group(1) if m else text).strip()
+
+
+def _demo_grade_json(answer: str) -> str:
+    words = len(answer.split())
+    score = max(0, min(95, 45 + words * 5))
+    return json.dumps({
+        "score": score,
+        "feedback": "Demo grading rewards a clear, reasoned answer. Connect a "
+                    "model in Connections for real, substantive feedback.",
+    })
+
+
+def _demo_lesson_json(prompt: str) -> str:
+    import re
+    m = re.search(r"topic the learner asked about:\s*(.+)", prompt, re.IGNORECASE)
+    topic = (m.group(1).strip() if m else prompt.strip()) or "the topic"
+    title = topic[:60].strip().title()
+    return json.dumps({
+        "title": title,
+        "read": "5 min",
+        "intro": f"A quick demo lesson on {topic}. Connect a model in Connections "
+                 "to have a real Professor write this for you.",
+        "sections": [
+            {"h": "The core idea", "p": f"{title} matters because it is foundational to your goal."},
+            {"h": "How it works", "p": "We break the concept into its moving parts and how they connect."},
+            {"h": "Putting it to use", "p": "Try the runnable example below, then answer the probe."},
+        ],
+        "probe": {"q": f"In your own words, what problem does {topic} solve?",
+                  "hint": "Think about what would break without it."},
+    })
 
 
 def _clean_goal(text: str) -> str:
@@ -55,7 +99,7 @@ def _subjects_for(goal: str):
 
 
 def _demo_curriculum_json(goal: str) -> str:
-    subjects_seed = _subjects_for(goal)
+    subjects_seed = _subjects_for(goal.lower())
     subjects = []
     for i, (title, sandbox) in enumerate(subjects_seed):
         subjects.append({

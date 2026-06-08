@@ -37,6 +37,13 @@
     testConnector: (cfg) => req('POST', '/api/connectors/test', cfg),
     clearConnector: () => req('DELETE', '/api/connectors/active'),
     onboard: (goal, level) => req('POST', '/api/onboard', { goal, level }),
+    // Professor authors a lesson; Examiner grades (rewarding the professor);
+    // sandbox runs code; faculty returns live grades + the reward feed.
+    lesson: (subject, topic, professor, sandbox) =>
+      req('POST', '/api/lesson', { subject, topic, professor: professor || '', sandbox: sandbox || 'python' }),
+    grade: (payload) => req('POST', '/api/grade', payload),
+    faculty: () => req('GET', '/api/faculty'),
+    runCode: (sandbox, code) => req('POST', '/api/sandbox/run', { sandbox, code }),
   };
 
   // Hue palette so generated subjects/faculty look at home in the design.

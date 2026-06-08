@@ -37,6 +37,10 @@ def onboard(body: OnboardIn):
         curriculum = principal.design_curriculum(mock, body.goal, body.level)
         provider, using_mock = mock, True
 
+    # Seed the live college state so the reward loop has faculty to track.
+    from ..state import STATE
+    STATE.init_from_curriculum(curriculum.model_dump())
+
     return OnboardOut(
         curriculum=curriculum,
         provider=provider.id,

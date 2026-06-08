@@ -65,3 +65,55 @@ class OnboardOut(BaseModel):
     provider: str
     model: str
     using_mock: bool
+
+
+# ---- Professor / lessons ----------------------------------------------
+
+class LessonIn(BaseModel):
+    subject: str
+    topic: str
+    professor: str = ""
+    sandbox: str = "python"
+
+
+class LessonOut(BaseModel):
+    lesson: dict
+    provider: str
+    model: str
+    using_mock: bool
+
+
+# ---- Examiner / reward loop -------------------------------------------
+
+class GradeIn(BaseModel):
+    kind: str = "probe"  # "probe" | "exam"
+    question: str
+    answer: str
+    bar: int = 70
+    subject: str = ""
+    professor_id: str = ""
+    professor: str = ""
+
+
+class GradeOut(BaseModel):
+    score: int
+    passed: bool
+    feedback: str
+    reward: dict | None = None  # {delta, professor, methodology_changed}
+    provider: str
+    using_mock: bool
+
+
+# ---- Sandbox ----------------------------------------------------------
+
+class SandboxIn(BaseModel):
+    sandbox: str = "python"
+    code: str
+
+
+class SandboxOut(BaseModel):
+    ok: bool
+    stdout: str
+    stderr: str
+    duration_ms: int
+    sandbox: str
