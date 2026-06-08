@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Reward &amp; Grading Architecture</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">subsystem</a>&nbsp; / &nbsp;<b>Reward &amp; Grading</b></div>
+    <span class="pill">subsystem · C3</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Subsystem architecture · the scoreboard</div>
+  <h1>Outcomes become <span class="grad">scores.</span></h1>
+  <p class="lede">One subsystem owns all the numbers. It consumes <code class="k">reward.signal</code> events and maintains two ledgers: the <b class="ink">faculty grade</b> that drives the reinforcement loop, and the <b class="ink">student rank &amp; XP</b> that drives motivation. The asymmetry is the whole design — penalties only ever touch faculty.</p>
+  <div class="tags">
+    <span class="tag"><b>ledger 1</b><span class="eq">=</span>faculty grade</span>
+    <span class="tag"><b>ledger 2</b><span class="eq">=</span>student rank / XP</span>
+    <span class="tag"><b>rule</b><span class="eq">=</span>student reward ≥ 0</span>
+    <span class="tag"><b>output</b><span class="eq">=</span>grades · ranks · boards</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Sources">
+  <div class="sec-head">
+    <div class="eyebrow">Reward sources</div>
+    <h2>Where every signal comes from.</h2>
+    <p>Consolidated from the agent specs — the canonical list the system reduces over.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Event</th><th>To faculty</th><th>To student</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">Correct probe</td><td class="r pos">+1</td><td class="r">+5 XP</td></tr>
+        <tr><td class="mono">Pass quiz</td><td class="r pos">+2</td><td class="r">+15 XP</td></tr>
+        <tr><td class="mono">Pass unit exam</td><td class="r pos">+5</td><td class="r">+50 XP</td></tr>
+        <tr><td class="mono">Semester mastery</td><td class="r pos">+20</td><td class="r">+500 XP · rank up</td></tr>
+        <tr><td class="mono">Can't answer probe</td><td class="r neg">−1</td><td class="r zero">0</td></tr>
+        <tr><td class="mono">Fail mid-term</td><td class="r neg">−10</td><td class="r zero">0 · re-enroll</td></tr>
+        <tr><td class="mono">Momentum stall</td><td class="r neg">−0.5</td><td class="r zero">0</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Grades">
+  <div class="sec-head">
+    <div class="eyebrow">Faculty grade</div>
+    <h2>From a stream of rewards to a letter.</h2>
+  </div>
+  <div class="split">
+    <div class="callout accent">
+      <h3>Computation</h3>
+      <p>The grade is an exponential moving average of reward, normalized to a 0–100 score and mapped to a letter. Recent outcomes weigh more, so a teacher can recover after a Provost update.</p>
+      <div class="big">gradeₜ = α·rₜ + (1−α)·gradeₜ₋₁  →  A / B / C / D</div>
+    </div>
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Score</th><th>Letter</th><th>Consequence</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">85–100</td><td class="ag pos">A</td><td class="mono">Reinforced · tenure</td></tr>
+          <tr><td class="mono">70–84</td><td class="ag">B</td><td class="mono">Healthy</td></tr>
+          <tr><td class="mono">55–69</td><td class="ag">C</td><td class="mono">Provost watch</td></tr>
+          <tr><td class="mono">40–54</td><td class="ag neg">D</td><td class="mono">Methodology rewrite</td></tr>
+          <tr><td class="mono">&lt; 40</td><td class="ag neg">F</td><td class="mono">Principal may replace</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Student progression">
+  <div class="sec-head">
+    <div class="eyebrow">Student progression</div>
+    <h2>XP, ranks &amp; the board — upside only.</h2>
+    <p>The learner's ledger never goes negative. Rank labels are theme-driven (see C8); thresholds are fixed.</p>
+  </div>
+  <div class="grid g2">
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Rank tier</th><th>XP threshold</th></tr></thead>
+        <tbody>
+          <tr><td class="ag">Tier 1 · Novice</td><td class="r mono">0</td></tr>
+          <tr><td class="ag">Tier 2 · Adept</td><td class="r mono">500</td></tr>
+          <tr><td class="ag">Tier 3 · Elite</td><td class="r mono">1500</td></tr>
+          <tr><td class="ag">Tier 4 · Master</td><td class="r mono">4000</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout mint">
+      <h3>Leaderboard &amp; rival</h3>
+      <p>XP feeds an opt-in class leaderboard and the rival agent's target. The rival is pinned just ahead of you — a moving goal, never a punishment.</p>
+      <div class="big">XP → rank · leaderboard · rival target</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Principle">
+  <div class="sec-head"><div class="eyebrow">The asymmetry</div><h2>Why it's built this way.</h2></div>
+  <div class="callout coral">
+    <h3>All penalties flow to faculty</h3>
+    <p>The student ledger is monotonic — it only rises. Every negative reward lands on a teaching agent. This is the single rule that keeps the learner engaged while making the faculty relentlessly accountable. The reinforcement loop in the <a href="Component - Faculty Agent.html" style="color:var(--accent)">Faculty Agent spec</a> is this rule, applied.</p>
+    <div class="big">student: reward ≥ 0 always · faculty: the full gradient</div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Subsystem C3 complete</div>
+  <h2 style="font-size:24px">Next: the data it all reads.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Student Model is the state object every agent observes — the full schema.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Subsystem - Connection Layer.html"><span class="k">subsystem c2</span>Connection Layer</a>
+  </div>
+  <p class="foot-note">AULA · Subsystem C3 · Reward &amp; Grading · two ledgers, one asymmetry.</p>
+</footer>
+
+</body>
+</html>

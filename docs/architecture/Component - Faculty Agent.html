@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Faculty Agent Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0d11; --bg-2:#0f131a; --surface:#141922; --surface-2:#1a2029;
+    --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.15);
+    --ink:#e9ebf2; --muted:#969cad; --faint:#5f6678;
+    --accent:#6e8efb; --accent-soft:rgba(110,142,251,.13);
+    --mint:#46d6ad; --coral:#f0846b; --gold:#e6c06a;
+    --r:14px; --maxw:1160px;
+    --font-d:"Space Grotesk",sans-serif; --font-b:"Sora",sans-serif; --font-m:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--font-b); font-weight:300; line-height:1.5; -webkit-font-smoothing:antialiased;
+    background-image:
+      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+      radial-gradient(circle at 80% -5%, rgba(110,142,251,.08), transparent 45%);
+    background-size:34px 34px, 34px 34px, 100% 100%;
+    background-attachment:fixed;
+  }
+  ::selection{background:var(--accent-soft);color:#fff}
+
+  .topbar{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(11,13,17,.78);border-bottom:1px solid var(--border)}
+  .topbar .inner{max-width:var(--maxw);margin:0 auto;padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-d);font-weight:700;letter-spacing:.14em;font-size:15px}
+  .brand .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(150deg,var(--accent),#9a7bf0);display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;box-shadow:0 0 0 1px rgba(255,255,255,.12) inset}
+  .crumb{font-family:var(--font-m);font-size:12px;color:var(--faint)}
+  .crumb b{color:var(--accent)}
+  .pill{font-family:var(--font-m);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--border-strong);border-radius:100px;padding:6px 13px;background:var(--accent-soft)}
+  @media(max-width:680px){.crumb{display:none}}
+
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  section{padding:64px 0 8px}
+  .eyebrow{font-family:var(--font-m);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--accent);opacity:.6}
+  h1{font-family:var(--font-d);font-weight:700;letter-spacing:-.02em;line-height:1.04}
+  h2{font-family:var(--font-d);font-weight:600;font-size:30px;letter-spacing:-.01em;line-height:1.14}
+  h3{font-family:var(--font-d);font-weight:600;font-size:17px;letter-spacing:-.01em}
+  .lede{color:var(--muted);font-size:18px;max-width:64ch;font-weight:300}
+  .sec-head{margin-bottom:30px}
+  .sec-head p{color:var(--muted);font-size:16px;max-width:64ch;margin-top:10px}
+
+  .hero{padding-top:58px}
+  .hero h1{font-size:clamp(38px,6vw,66px);margin:8px 0 20px}
+  .hero h1 .grad{background:linear-gradient(100deg,var(--accent),#b9a3ff,var(--mint));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hero .lede{font-size:20px}
+  .tags{display:flex;flex-wrap:wrap;gap:9px;margin-top:26px}
+  .tag{font-family:var(--font-m);font-size:12px;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:8px 12px;background:var(--surface);display:flex;align-items:center;gap:8px}
+  .tag b{color:var(--ink);font-weight:500}
+  .tag .eq{color:var(--accent)}
+
+  /* RL loop diagram */
+  .rl{margin-top:10px}
+  .rlrow{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch}
+  .node{border:1px solid var(--border-strong);border-radius:var(--r);padding:22px;background:var(--surface);position:relative}
+  .node.agent{box-shadow:0 0 0 1px var(--accent-soft) inset,0 18px 50px rgba(110,142,251,.12);border-color:rgba(110,142,251,.45)}
+  .node .tagrl{font-family:var(--font-m);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .node h3{font-size:21px;margin:6px 0 4px}
+  .node .sub{color:var(--muted);font-size:13.5px}
+  .node .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+  .node .chips span{font-family:var(--font-m);font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:4px 8px;background:var(--bg-2)}
+  .midcol{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 8px;min-width:96px}
+  /* arrows */
+  .arrow{position:relative;width:100%;height:0;border-top:2px solid var(--accent);margin:0}
+  .arrow.top{margin-bottom:8px}
+  .arrow.top::after{content:"";position:absolute;right:-1px;top:-6px;border-left:9px solid var(--accent);border-top:5px solid transparent;border-bottom:5px solid transparent}
+  .arrow.bot{border-top-color:var(--mint);margin-top:8px}
+  .arrow.bot::after{content:"";position:absolute;left:-1px;top:-6px;border-right:9px solid var(--mint);border-top:5px solid transparent;border-bottom:5px solid transparent}
+  .arrowlab{font-family:var(--font-m);font-size:11.5px;text-align:center;padding:4px 2px;line-height:1.4}
+  .arrowlab.a{color:var(--accent)} .arrowlab.r{color:var(--mint)}
+  .arrowlab .k{color:var(--faint)}
+  @media(max-width:760px){
+    .rlrow{grid-template-columns:1fr;gap:14px}
+    .midcol{flex-direction:row;gap:14px;min-width:0;padding:6px 0}
+    .arrow{height:auto;border-top:none;width:auto;flex:1}
+    .arrow::after{display:none}
+    .arrowlab{border:1px dashed var(--border-strong);border-radius:8px;padding:8px}
+  }
+
+  .legend{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:26px}
+  @media(max-width:900px){.legend{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.legend{grid-template-columns:1fr}}
+  .leg{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 14px}
+  .leg .rl{font-family:var(--font-m);font-size:12px;color:var(--accent);margin:0}
+  .leg .arrow2{color:var(--faint);font-family:var(--font-m);font-size:11px;margin:3px 0}
+  .leg b{font-family:var(--font-d);font-weight:600;font-size:14px}
+  .leg span{color:var(--muted);font-size:12px;display:block;margin-top:2px}
+
+  /* internal modules */
+  .grid{display:grid;gap:14px}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:960px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.g4,.g3,.g2{grid-template-columns:1fr}}
+  .mod{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;transition:border-color .18s,transform .18s;position:relative}
+  .mod:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .mod .ix{font-family:var(--font-m);font-size:11px;color:var(--faint);display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .mod .ix .badge{color:var(--accent);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:10px}
+  .mod h3{font-size:15.5px}
+  .mod p{color:var(--muted);font-size:13px;margin-top:8px;line-height:1.5}
+  .mod .io{font-family:var(--font-m);font-size:11px;color:var(--faint);margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
+  .mod .io b{color:var(--mint);font-weight:500}
+
+  /* reward table */
+  .rew{display:grid;grid-template-columns:1.4fr .9fr;gap:16px;align-items:start}
+  @media(max-width:820px){.rew{grid-template-columns:1fr}}
+  .rtable{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  thead th{font-family:var(--font-m);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:left;padding:12px 16px;background:var(--bg-2);border-bottom:1px solid var(--border)}
+  tbody td{padding:11px 16px;border-bottom:1px solid var(--border)}
+  tbody tr:last-child td{border-bottom:none}
+  td.ev{color:var(--ink)} td.who{font-family:var(--font-m);font-size:11px;color:var(--muted)}
+  td.val{font-family:var(--font-m);font-weight:600;text-align:right;white-space:nowrap}
+  .pos{color:var(--mint)} .neg{color:var(--coral)} .zero{color:var(--faint)}
+  .rnote{background:linear-gradient(160deg,var(--accent-soft),var(--surface));border:1px solid rgba(110,142,251,.25);border-radius:var(--r);padding:20px}
+  .rnote h3{margin-bottom:8px}
+  .rnote p{color:var(--muted);font-size:13.5px;margin-top:8px}
+  .rnote .big{font-family:var(--font-m);font-size:13px;color:var(--mint);margin-top:14px;padding:10px 12px;border:1px solid rgba(70,214,173,.25);border-radius:9px;background:rgba(70,214,173,.06)}
+
+  /* policy update diff */
+  .diff{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:stretch;margin-top:6px}
+  @media(max-width:760px){.diff{grid-template-columns:1fr;gap:14px}}
+  .plan{border:1px solid var(--border);border-radius:var(--r);padding:20px;background:var(--surface)}
+  .plan.old{opacity:.72}
+  .plan .lab{font-family:var(--font-m);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px}
+  .plan.old .lab{color:var(--coral)} .plan.new .lab{color:var(--mint)}
+  .plan ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+  .plan li{font-size:13px;color:var(--muted);padding-left:18px;position:relative;line-height:1.45}
+  .plan li::before{content:"–";position:absolute;left:0;color:var(--faint)}
+  .plan.new li::before{content:"+";color:var(--mint)}
+  .plan.new li b{color:var(--ink);font-weight:500}
+  .diffmid{display:flex;align-items:center;justify-content:center;padding:0 18px}
+  .diffmid .a{font-family:var(--font-m);font-size:12px;color:var(--accent);text-align:center}
+  .diffmid .a .big{font-size:22px;display:block;margin-bottom:6px}
+  @media(max-width:760px){.diffmid{padding:0}.diffmid .a .big{transform:rotate(90deg)}}
+
+  /* interfaces */
+  .io2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.io2{grid-template-columns:1fr}}
+  .iocard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+  .iocard h3{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+  .iocard h3 .d{width:8px;height:8px;border-radius:50%}
+  .iocard.in h3 .d{background:var(--accent)} .iocard.out h3 .d{background:var(--mint)}
+  .evt{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+  .evt:last-child{border-bottom:none}
+  .evt code{font-family:var(--font-m);font-size:12px;color:var(--ink);background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:3px 8px;white-space:nowrap}
+  .evt span{color:var(--muted);font-size:12.5px}
+
+  /* lifecycle */
+  .life{display:flex;gap:0;flex-wrap:wrap;margin-top:6px;position:relative}
+  .lstep{flex:1;min-width:120px;padding:0 10px;position:relative}
+  .lstep:not(:last-child)::after{content:"→";position:absolute;right:-7px;top:18px;color:var(--faint);font-size:16px}
+  .lstep .dot{width:40px;height:40px;border-radius:11px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;font-family:var(--font-m);font-size:13px;color:var(--accent);margin-bottom:12px}
+  .lstep h4{font-family:var(--font-d);font-weight:600;font-size:13.5px}
+  .lstep p{color:var(--muted);font-size:12px;margin-top:5px;line-height:1.4}
+  @media(max-width:760px){.life{flex-direction:column;gap:14px}.lstep::after{display:none}.lstep{padding:0}}
+
+  footer{margin-top:62px;border-top:1px solid var(--border);padding:44px 0 72px}
+  .compgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}
+  @media(max-width:880px){.compgrid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.compgrid{grid-template-columns:1fr}}
+  .comp{padding:16px;border-radius:11px;border:1px dashed var(--border-strong);background:var(--bg-2)}
+  .comp b{font-family:var(--font-d);font-weight:600;font-size:14px;display:block}
+  .comp span{color:var(--muted);font-size:12px}
+  .comp.done{border-style:solid;border-color:rgba(110,142,251,.4);background:var(--accent-soft)}
+  .comp.done b{color:var(--accent)}
+  .foot-note{color:var(--faint);font-size:13px;margin-top:30px;font-family:var(--font-m)}
+  .divider{height:1px;background:var(--border);max-width:var(--maxw);margin:6px auto}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb">component&nbsp; / &nbsp;<b>Faculty Agent</b></div>
+    <span class="pill">RL agent spec</span>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Component architecture · 01 of n</div>
+  <h1>A teacher is an <span class="grad">RL agent.</span></h1>
+  <p class="lede">Faculty aren't scripted tutors. Each one is a reinforcement-learning agent: its <b style="color:var(--ink);font-weight:500">policy</b> is an LLM steered by a teaching methodology, its <b style="color:var(--ink);font-weight:500">environment</b> is you, and its <b style="color:var(--ink);font-weight:500">reward</b> is whether you actually learn. Here's the anatomy of one.</p>
+  <div class="tags">
+    <span class="tag"><b>policy</b><span class="eq">=</span>LLM + methodology</span>
+    <span class="tag"><b>reward</b><span class="eq">=</span>your outcomes</span>
+    <span class="tag"><b>update</b><span class="eq">=</span>Provost rewrites method</span>
+    <span class="tag"><b>episode</b><span class="eq">=</span>a module</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<!-- RL LOOP -->
+<section class="wrap" data-screen-label="RL loop">
+  <div class="sec-head">
+    <div class="eyebrow">The control loop</div>
+    <h2>The canonical loop, in academic clothing.</h2>
+    <p>Agent and environment exchange action, state, and reward on every step — the textbook RL diagram, mapped onto teaching.</p>
+  </div>
+
+  <div class="rl">
+    <div class="rlrow">
+      <div class="node agent">
+        <div class="tagrl">agent · π</div>
+        <h3>Faculty Agent</h3>
+        <div class="sub">A professor. Chooses how to teach next from its policy.</div>
+        <div class="chips"><span>LLM backend</span><span>methodology</span><span>context pack</span><span>memory</span></div>
+      </div>
+      <div class="midcol">
+        <div style="width:100%">
+          <div class="arrowlab a">action <span class="k">aₜ</span><br/>teach · probe · assign</div>
+          <div class="arrow top"></div>
+          <div class="arrow bot"></div>
+          <div class="arrowlab r">state <span class="k">sₜ₊₁</span> · reward <span class="k">rₜ</span><br/>answers · grades · attendance</div>
+        </div>
+      </div>
+      <div class="node">
+        <div class="tagrl">environment</div>
+        <h3>The Student + Course</h3>
+        <div class="sub">You, the curriculum position, and the rest of AULA.</div>
+        <div class="chips"><span>student model</span><span>curriculum</span><span>Examiner</span><span>Registrar</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="leg"><p class="rl">agent</p><div class="arrow2">↓ maps to</div><b>Professor</b><span>the teaching agent</span></div>
+    <div class="leg"><p class="rl">action aₜ</p><div class="arrow2">↓ maps to</div><b>A teaching move</b><span>blog · probe · assignment · tool run</span></div>
+    <div class="leg"><p class="rl">state sₜ</p><div class="arrow2">↓ maps to</div><b>Student model</b><span>mastery · history · momentum</span></div>
+    <div class="leg"><p class="rl">reward rₜ</p><div class="arrow2">↓ maps to</div><b>Outcome signal</b><span>+ on learning, − on struggle</span></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- INTERNAL MODULES -->
+<section class="wrap" data-screen-label="Inside the agent">
+  <div class="sec-head">
+    <div class="eyebrow">Inside the agent</div>
+    <h2>What the box contains.</h2>
+    <p>Eight modules. The policy is the brain; everything else feeds, records, or grounds it.</p>
+  </div>
+  <div class="grid g4">
+    <div class="mod"><div class="ix">M1<span class="badge">identity</span></div><h3>Context Pack</h3><p>The agent's self: subject knowledge, syllabus, grading rubric, persona &amp; voice. Loaded at hire, versioned over time.</p><div class="io">loaded by · <b>Principal</b></div></div>
+    <div class="mod"><div class="ix">M2<span class="badge">state</span></div><h3>Observation</h3><p>Reads the student model — current mastery, last answers, attendance, momentum — and the curriculum position into context.</p><div class="io">from · <b>Registrar + bus</b></div></div>
+    <div class="mod"><div class="ix">M3<span class="badge">π · brain</span></div><h3>Policy</h3><p>The LLM backend conditioned on the methodology doc. Maps state → the next teaching action. The decision-maker.</p><div class="io">backed by · <b>any LLM</b></div></div>
+    <div class="mod"><div class="ix">M4<span class="badge">actions</span></div><h3>Action Head</h3><p>The concrete move-set: author a blog, ask a probe question, set an assignment, run an MCP tool, or escalate.</p><div class="io">emits to · <b>student + bus</b></div></div>
+    <div class="mod"><div class="ix">M5<span class="badge">memory</span></div><h3>Episodic Memory</h3><p>A log of past lessons with this student and what landed. Persists across heartbeats so the agent never restarts cold.</p><div class="io">persisted · <b>per student</b></div></div>
+    <div class="mod"><div class="ix">M6<span class="badge">value</span></div><h3>Grade / Value</h3><p>The running teacher grade — an estimate of expected return. Reward signals move it up or down; it's the public score.</p><div class="io">visible on · <b>faculty review</b></div></div>
+    <div class="mod"><div class="ix">M7<span class="badge">tools</span></div><h3>Tool Adapter</h3><p>The MCP connections this subject needs — Python sandbox, notebook, search. Auto-mounted from the domain pack.</p><div class="io">via · <b>MCP registry</b></div></div>
+    <div class="mod"><div class="ix">M8<span class="badge">update</span></div><h3>Update Hook</h3><p>Receives a new methodology from the Provost when reward dips. The policy-improvement channel — the agent's learning step.</p><div class="io">from · <b>Provost</b></div></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- REWARD FUNCTION -->
+<section class="wrap" data-screen-label="Reward function">
+  <div class="sec-head">
+    <div class="eyebrow">The reward function</div>
+    <h2>r(s, a) — graded on your learning, not your comfort.</h2>
+    <p>Every outcome is a scalar reward to the <i>teacher</i>. The student's reward is always zero — they're the environment, never the one being penalized.</p>
+  </div>
+  <div class="rew">
+    <div class="rtable">
+      <table>
+        <thead><tr><th>Event in the environment</th><th>Recipient</th><th style="text-align:right">Reward</th></tr></thead>
+        <tbody>
+          <tr><td class="ev">Student answers a probe correctly</td><td class="who">teacher</td><td class="val pos">+1</td></tr>
+          <tr><td class="ev">Student passes a quiz</td><td class="who">teacher</td><td class="val pos">+2</td></tr>
+          <tr><td class="ev">Student passes a unit exam</td><td class="who">teacher</td><td class="val pos">+5</td></tr>
+          <tr><td class="ev">Semester finished with mastery</td><td class="who">teacher</td><td class="val pos">+20 ⟂</td></tr>
+          <tr><td class="ev">Student can't answer a probe</td><td class="who">teacher</td><td class="val neg">−1</td></tr>
+          <tr><td class="ev">Student fails a quiz</td><td class="who">teacher</td><td class="val neg">−2</td></tr>
+          <tr><td class="ev">Student fails a mid-term</td><td class="who">teacher</td><td class="val neg">−10 ↺</td></tr>
+          <tr><td class="ev">Attendance / momentum stalls</td><td class="who">teacher</td><td class="val neg">−0.5</td></tr>
+          <tr><td class="ev">Any event, to the student</td><td class="who">student</td><td class="val zero">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="rnote">
+      <h3>Why one-sided?</h3>
+      <p>If failure cost the student, they'd disengage — the opposite of learning. Putting the whole gradient on the faculty makes the system relentlessly accountable to the learner.</p>
+      <p style="margin-top:10px"><span style="font-family:var(--font-m);font-size:12px;color:var(--coral)">⟂</span> terminal reward · <span style="font-family:var(--font-m);font-size:12px;color:var(--coral)">↺</span> triggers re-enroll + policy update</p>
+      <div class="big">Σ reward over a unit &lt; threshold → escalate to Provost for a policy update.</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- POLICY UPDATE -->
+<section class="wrap" data-screen-label="Policy update">
+  <div class="sec-head">
+    <div class="eyebrow">The learning step</div>
+    <h2>Low reward → the policy improves.</h2>
+    <p>There's no gradient descent on weights here. The "update" is a rewritten methodology from the Provost — a structured change to how the agent teaches, applied through the Update Hook.</p>
+  </div>
+  <div class="diff">
+    <div class="plan old">
+      <div class="lab">policy v3 · grade fell to C−</div>
+      <ul>
+        <li>One dense blog per concept</li>
+        <li>Abstract-first, theory before practice</li>
+        <li>Probe immediately after reading</li>
+        <li>Uniform pace for all units</li>
+      </ul>
+    </div>
+    <div class="diffmid"><div class="a"><span class="big">⟶</span>Provost<br/>rewrites</div></div>
+    <div class="plan new">
+      <div class="lab">policy v4 · applied</div>
+      <ul>
+        <li><b>Split each concept into 3 short blogs</b></li>
+        <li><b>Concrete example first, theory second</b></li>
+        <li><b>Worked practice before any probe</b></li>
+        <li><b>Slow the failing unit; add revision</b></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- INTERFACES -->
+<section class="wrap" data-screen-label="Interfaces">
+  <div class="sec-head">
+    <div class="eyebrow">Interfaces · the contract</div>
+    <h2>What it consumes, what it emits.</h2>
+    <p>The agent is a node on AULA's event bus. It subscribes to a few signals and emits a few — that's the entire integration surface.</p>
+  </div>
+  <div class="io2">
+    <div class="iocard in">
+      <h3><span class="d"></span>Subscribes&nbsp;·&nbsp;inputs</h3>
+      <div class="evt"><code>student.answer</code><span>a probe response to score</span></div>
+      <div class="evt"><code>exam.result</code><span>pass / fail from the Examiner</span></div>
+      <div class="evt"><code>attendance.tick</code><span>presence &amp; momentum</span></div>
+      <div class="evt"><code>methodology.update</code><span>new policy from the Provost</span></div>
+      <div class="evt"><code>principal.directive</code><span>pause · resume · reassign</span></div>
+    </div>
+    <div class="iocard out">
+      <h3><span class="d"></span>Emits&nbsp;·&nbsp;outputs</h3>
+      <div class="evt"><code>lesson.published</code><span>a new blog on the board</span></div>
+      <div class="evt"><code>probe.asked</code><span>a question to the student</span></div>
+      <div class="evt"><code>assignment.created</code><span>task added to kanban</span></div>
+      <div class="evt"><code>grade.changed</code><span>teacher grade moved by reward</span></div>
+      <div class="evt"><code>escalation.raised</code><span>asks Provost / Principal for help</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<!-- LIFECYCLE -->
+<section class="wrap" data-screen-label="Lifecycle">
+  <div class="sec-head">
+    <div class="eyebrow">Lifecycle · the heartbeat</div>
+    <h2>One step of the loop, in time.</h2>
+    <p>The agent wakes on a heartbeat or an event, runs one decision, acts, and sleeps — picking up exactly where it left off.</p>
+  </div>
+  <div class="life">
+    <div class="lstep"><div class="dot">0</div><h4>Idle</h4><p>Asleep until a heartbeat or a subscribed event fires.</p></div>
+    <div class="lstep"><div class="dot">1</div><h4>Observe</h4><p>Pull the latest student model &amp; curriculum position.</p></div>
+    <div class="lstep"><div class="dot">2</div><h4>Deliberate</h4><p>Policy chooses the next teaching action.</p></div>
+    <div class="lstep"><div class="dot">3</div><h4>Act</h4><p>Publish a blog, ask a probe, set work, or run a tool.</p></div>
+    <div class="lstep"><div class="dot">4</div><h4>Reward</h4><p>Outcome arrives; grade updates; memory is written.</p></div>
+    <div class="lstep"><div class="dot">5</div><h4>Update?</h4><p>If Σreward is low, request a new policy, then idle.</p></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="wrap" data-screen-label="Next components">
+  <div class="eyebrow">The other components</div>
+  <h2 style="font-size:24px">Same treatment, agent by agent.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">Each role gets its own spec like this one. Tell me which is next — the orchestrator is the natural follow-up since it sets every other agent's reward.</p>
+  <div class="compgrid">
+    <div class="comp done"><b>Faculty Agent</b><span>this spec ✓</span></div>
+    <div class="comp"><b>Principal / Orchestrator</b><span>hires, sets goals &amp; budgets</span></div>
+    <div class="comp"><b>Provost</b><span>computes policy updates</span></div>
+    <div class="comp"><b>Examiner</b><span>assessment &amp; the pass-gate</span></div>
+    <div class="comp"><b>Personal Guide</b><span>routes doubts to faculty</span></div>
+    <div class="comp"><b>Registrar</b><span>attendance &amp; the student model</span></div>
+    <div class="comp"><b>Counselor</b><span>burnout &amp; pacing</span></div>
+    <div class="comp"><b>The event bus</b><span>how they all talk</span></div>
+  </div>
+  <p class="foot-note">AULA · Component 01 · Faculty Agent · the RL framing is conceptual — methodology updates, not weight updates.</p>
+</footer>
+
+</body>
+</html>

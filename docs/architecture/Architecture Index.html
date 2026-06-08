@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Architecture Build Checklist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0d11; --bg-2:#0f131a; --surface:#141922; --surface-2:#1a2029;
+    --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.15);
+    --ink:#e9ebf2; --muted:#969cad; --faint:#5f6678;
+    --accent:#6e8efb; --accent-soft:rgba(110,142,251,.13);
+    --mint:#46d6ad; --gold:#e6c06a; --coral:#f0846b;
+    --r:14px; --maxw:1080px;
+    --font-d:"Space Grotesk",sans-serif; --font-b:"Sora",sans-serif; --font-m:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--font-b); font-weight:300; line-height:1.5; -webkit-font-smoothing:antialiased;
+    background-image:
+      linear-gradient(rgba(255,255,255,.016) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.016) 1px, transparent 1px),
+      radial-gradient(circle at 82% -8%, rgba(110,142,251,.08), transparent 46%);
+    background-size:34px 34px, 34px 34px, 100% 100%;
+    background-attachment:fixed;
+    padding-bottom:80px;
+  }
+  ::selection{background:var(--accent-soft);color:#fff}
+
+  .topbar{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(11,13,17,.8);border-bottom:1px solid var(--border)}
+  .topbar .inner{max-width:var(--maxw);margin:0 auto;padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-d);font-weight:700;letter-spacing:.14em;font-size:15px}
+  .brand .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(150deg,var(--accent),#9a7bf0);display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;box-shadow:0 0 0 1px rgba(255,255,255,.12) inset}
+  .counter{font-family:var(--font-m);font-size:12px;color:var(--muted)}
+  .counter b{color:var(--accent)}
+
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  .hero{padding:54px 0 26px}
+  .eyebrow{font-family:var(--font-m);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--accent);opacity:.6}
+  h1{font-family:var(--font-d);font-weight:700;letter-spacing:-.02em;line-height:1.05;font-size:clamp(34px,5vw,52px)}
+  .lede{color:var(--muted);font-size:18px;max-width:60ch;margin-top:16px}
+
+  .progwrap{margin-top:30px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px 22px}
+  .progtop{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+  .progtop .l{font-family:var(--font-d);font-weight:600;font-size:16px}
+  .progtop .r{font-family:var(--font-m);font-size:13px;color:var(--muted)}
+  .progtop .r b{color:var(--accent);font-size:18px}
+  .bar{height:8px;border-radius:100px;background:var(--bg-2);overflow:hidden;border:1px solid var(--border)}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--mint));border-radius:100px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+
+  .group{margin-top:42px}
+  .ghead{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  .ghead .gx{font-family:var(--font-m);font-size:12px;color:var(--accent);background:var(--accent-soft);border:1px solid var(--border);border-radius:7px;padding:4px 9px;flex-shrink:0}
+  .ghead h2{font-family:var(--font-d);font-weight:600;font-size:21px;letter-spacing:-.01em}
+  .ghead .gsub{color:var(--muted);font-size:13.5px;margin-left:auto;text-align:right}
+  @media(max-width:620px){.ghead{flex-wrap:wrap}.ghead .gsub{margin-left:0;text-align:left;width:100%}}
+
+  .list{margin-top:16px;display:flex;flex-direction:column;gap:9px}
+  .item{
+    display:flex;align-items:center;gap:15px;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:14px 16px;transition:border-color .16s,background .16s;
+  }
+  .item:hover{border-color:var(--border-strong)}
+  .item.done{background:linear-gradient(100deg,var(--accent-soft),var(--surface));border-color:rgba(110,142,251,.22)}
+  .cb{
+    width:22px;height:22px;border-radius:7px;border:2px solid var(--border-strong);flex-shrink:0;cursor:pointer;
+    display:grid;place-items:center;transition:all .16s;background:var(--bg-2);
+  }
+  .cb:hover{border-color:var(--accent)}
+  .cb.on{background:var(--accent);border-color:var(--accent)}
+  .cb svg{width:12px;height:12px;opacity:0;transform:scale(.6);transition:all .16s}
+  .cb.on svg{opacity:1;transform:scale(1)}
+  .imeta{flex:1;min-width:0}
+  .imeta .t{font-family:var(--font-d);font-weight:600;font-size:15px;display:flex;align-items:center;gap:9px}
+  .imeta .code{font-family:var(--font-m);font-size:11px;color:var(--faint)}
+  .imeta .d{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .item.done .imeta .t{color:var(--ink)}
+  .status{font-family:var(--font-m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;border-radius:100px;border:1px solid var(--border);white-space:nowrap;flex-shrink:0}
+  .status.done{color:var(--mint);border-color:rgba(70,214,173,.3);background:rgba(70,214,173,.07)}
+  .status.next{color:var(--accent);border-color:rgba(110,142,251,.35);background:var(--accent-soft)}
+  .status.plan{color:var(--faint)}
+  .open{font-family:var(--font-m);font-size:12px;color:var(--accent);text-decoration:none;border:1px solid var(--border-strong);border-radius:8px;padding:7px 12px;white-space:nowrap;transition:all .16s;flex-shrink:0}
+  .open:hover{background:var(--accent);color:#0b0d11;border-color:var(--accent)}
+  .open.disabled{color:var(--faint);border-color:var(--border);pointer-events:none;opacity:.5}
+  @media(max-width:620px){.imeta .d{display:none}.open{display:none}}
+
+  .foot{margin-top:46px;border-top:1px solid var(--border);padding-top:24px;color:var(--faint);font-size:13px;font-family:var(--font-m)}
+  .resetbtn{font-family:var(--font-m);font-size:11.5px;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:7px 12px;cursor:pointer;margin-top:14px;transition:all .16s}
+  .resetbtn:hover{color:var(--ink);border-color:var(--border-strong)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="counter"><b id="cnum">0</b> / <span id="ctot">0</span> diagrams done</div>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Architecture · build checklist</div>
+  <h1>Everything we need to draw.</h1>
+  <p class="lede">The running list of architecture diagrams for AULA, so nothing gets forgotten. Tick items as we finish them — your progress is saved on this device. We build them one by one.</p>
+
+  <div class="progwrap">
+    <div class="progtop">
+      <div class="l">Overall progress</div>
+      <div class="r"><b id="pct">0%</b></div>
+    </div>
+    <div class="bar"><i id="barfill" style="width:0%"></i></div>
+  </div>
+</section>
+
+<main class="wrap" id="board" data-screen-label="Checklist"></main>
+
+<div class="wrap">
+  <div class="foot">
+    AULA · architecture index · tick state persists locally · the product-screens track is separate (see Architecture Map).
+    <div><button class="resetbtn" id="reset">↺ reset my ticks to defaults</button></div>
+  </div>
+</div>
+
+<script>
+  // file: '' means not built yet
+  const GROUPS = [
+    { gx:'A', title:'System maps', sub:'the big-picture foundation', items:[
+      { id:'a1', t:'Product Architecture Map', code:'overview', d:'Agents, core loop, reward loop, MCP/LLM layer, goal hierarchy.', file:'Architecture Map.html', done:true },
+      { id:'a2', t:'Concepts & Theming', code:'concepts', d:'The ~28 expansion ideas + the 10-skin live theme system.', file:'Concepts & Theming.html', done:true },
+    ]},
+    { gx:'B', title:'Agent specs', sub:'each role drawn as an RL agent', items:[
+      { id:'b1', t:'Faculty Agent', code:'component 01', d:'Policy, reward function, policy update, interfaces, lifecycle.', file:'Component - Faculty Agent.html', done:true },
+      { id:'b2', t:'Principal / Orchestrator', code:'component 02', d:'Hires faculty, sets goals & budgets, governance — frames every other reward.', file:'Component - Principal Orchestrator.html', done:true },
+      { id:'b3', t:'Provost', code:'component 03', d:'The policy-update engine — computes the methodology rewrite on low reward.', file:'Component - Provost.html', done:true },
+      { id:'b4', t:'Examiner', code:'component 04', d:'Assessment, blind grading, the pass-gate & re-enroll trigger.', file:'Component - Examiner.html', done:true },
+      { id:'b5', t:'Personal Guide', code:'component 05', d:'Always-on concierge — classifies a doubt, routes to the right teacher.', file:'Component - Personal Guide.html', done:true },
+      { id:'b6', t:'Registrar', code:'component 06', d:'Attendance, records, and the student model the agents observe.', file:'Component - Registrar.html', done:true },
+      { id:'b7', t:'Counselor', code:'component 07', d:'Burnout & frustration detection, pacing, motivation.', file:'Component - Counselor.html', done:true },
+    ]},
+    { gx:'C', title:'Subsystems', sub:'the infrastructure under the agents', items:[
+      { id:'c1', t:'The Event Bus', code:'subsystem', d:'How every agent talks — topics, events, the message contract.', file:'Subsystem - Event Bus.html', done:true },
+      { id:'c2', t:'Connection Layer', code:'subsystem', d:'LLM router (any model per agent) + MCP registry (auto-mount by domain).', file:'Subsystem - Connection Layer.html', done:true },
+      { id:'c3', t:'Reward & Grading System', code:'subsystem', d:'Cross-cutting: how reward flows, grades, ranks, leaderboards.', file:'Subsystem - Reward Grading.html', done:true },
+      { id:'c4', t:'Student Model & Data Schema', code:'subsystem', d:'Mastery, history, momentum — the state every agent reads.', file:'Subsystem - Student Model.html', done:true },
+      { id:'c5', t:'Domain Library + Auto-gen', code:'subsystem', d:'Curated context packs with the auto-generated fallback pipeline.', file:'Subsystem - Domain Library.html', done:true },
+      { id:'c6', t:'Curriculum Builder', code:'subsystem', d:'The hiring → semester → tools assembly that runs at intake.', file:'Subsystem - Curriculum Builder.html', done:true },
+      { id:'c7', t:'Career & Outcomes Engine', code:'subsystem', d:'Market scan → showcase project → resume → company connect.', file:'Subsystem - Career Engine.html', done:true },
+      { id:'c8', t:'Theme Engine', code:'subsystem', d:'How a skin reskins vocabulary, palette & personas across the app.', file:'Subsystem - Theme Engine.html', done:true },
+    ]},
+  ];
+
+  const KEY='aula_arch_checklist_v2';
+  let state = {};
+  try{ state = JSON.parse(localStorage.getItem(KEY)) || {}; }catch(e){ state={}; }
+  // seed defaults from `done` once
+  const ALL = GROUPS.flatMap(g=>g.items);
+  if(Object.keys(state).length===0){ ALL.forEach(it=>{ if(it.done) state[it.id]=true; }); }
+
+  const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="#0b0d11" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>';
+
+  function render(){
+    const board=document.getElementById('board');
+    board.innerHTML = GROUPS.map(g=>`
+      <div class="group">
+        <div class="ghead"><span class="gx">${g.gx}</span><h2>${g.title}</h2><span class="gsub">${g.sub}</span></div>
+        <div class="list">
+          ${g.items.map(it=>{
+            const on = !!state[it.id];
+            const statusClass = on ? 'done' : (it.next ? 'next' : 'plan');
+            const statusText = on ? 'Done' : (it.next ? 'Next up' : 'Planned');
+            const link = it.file
+              ? `<a class="open" href="${it.file.replace(/&/g,'&amp;')}">Open →</a>`
+              : `<span class="open disabled">not built</span>`;
+            return `
+            <div class="item ${on?'done':''}" data-id="${it.id}">
+              <div class="cb ${on?'on':''}" data-cb="${it.id}" role="checkbox" aria-checked="${on}" tabindex="0">${CHECK}</div>
+              <div class="imeta">
+                <div class="t">${it.t} <span class="code">${it.code}</span></div>
+                <div class="d">${it.d}</div>
+              </div>
+              <span class="status ${statusClass}">${statusText}</span>
+              ${link}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`).join('');
+    updateProgress();
+  }
+  function updateProgress(){
+    const total=ALL.length;
+    const done=ALL.filter(it=>state[it.id]).length;
+    const pct=Math.round(done/total*100);
+    document.getElementById('cnum').textContent=done;
+    document.getElementById('ctot').textContent=total;
+    document.getElementById('pct').textContent=pct+'%';
+    document.getElementById('barfill').style.width=pct+'%';
+  }
+  function toggle(id){
+    state[id]=!state[id];
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+    render();
+  }
+  document.addEventListener('click', e=>{
+    const cb=e.target.closest('[data-cb]');
+    if(cb){ toggle(cb.getAttribute('data-cb')); }
+  });
+  document.addEventListener('keydown', e=>{
+    const cb=e.target.closest && e.target.closest('[data-cb]');
+    if(cb && (e.key===' '||e.key==='Enter')){ e.preventDefault(); toggle(cb.getAttribute('data-cb')); }
+  });
+  document.getElementById('reset').addEventListener('click', ()=>{
+    state={}; ALL.forEach(it=>{ if(it.done) state[it.id]=true; });
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+    render();
+  });
+  render();
+</script>
+</body>
+</html>

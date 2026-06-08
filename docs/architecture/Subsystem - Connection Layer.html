@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Connection Layer Architecture</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">subsystem</a>&nbsp; / &nbsp;<b>Connection Layer</b></div>
+    <span class="pill">subsystem · C2</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Subsystem architecture · the substrate</div>
+  <h1>Any model. The right tools, <span class="grad">auto-wired.</span></h1>
+  <p class="lede">Two registries sit beneath every agent. The <b class="ink">LLM Router</b> backs each agent with a model you choose. The <b class="ink">MCP Registry</b> mounts the tools a subject needs — a coding course brings a Python sandbox online without anyone lifting a finger.</p>
+  <div class="tags">
+    <span class="tag"><b>router</b><span class="eq">=</span>any LLM, per agent</span>
+    <span class="tag"><b>registry</b><span class="eq">=</span>MCP tools by domain</span>
+    <span class="tag"><b>auto</b><span class="eq">=</span>mount on hire</span>
+    <span class="tag"><b>meter</b><span class="eq">=</span>cost per call</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="LLM Router">
+  <div class="sec-head">
+    <div class="eyebrow">Half one · LLM Router</div>
+    <h2>Every agent names its model.</h2>
+    <p>The Principal assigns a model per agent at hire; it's swappable anytime. The router handles fallback &amp; meters spend against the budget.</p>
+  </div>
+  <div class="split">
+    <div class="twrap">
+      <table>
+        <thead><tr><th>Provider</th><th>Tier</th><th>Typical use</th></tr></thead>
+        <tbody>
+          <tr><td class="ag">Claude</td><td class="mono">strong reasoner</td><td class="mono">Principal · Examiner</td></tr>
+          <tr><td class="ag">GPT</td><td class="mono">balanced</td><td class="mono">Professors</td></tr>
+          <tr><td class="ag">Gemini</td><td class="mono">long-context</td><td class="mono">research-heavy subjects</td></tr>
+          <tr><td class="ag">Llama / Mistral</td><td class="mono">fast &amp; cheap</td><td class="mono">Guide · routing</td></tr>
+          <tr><td class="ag">Custom / local</td><td class="mono">self-hosted</td><td class="mono">private deployments</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout accent">
+      <h3>What the router does</h3>
+      <p>One <code class="k">complete()</code> interface for all agents. Per-agent model binding, automatic fallback on error, retries, and a cost meter that emits <code class="k">budget.threshold</code> as an agent nears its cap.</p>
+      <div class="big">agent → complete(prompt) → router → provider</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="MCP Registry">
+  <div class="sec-head">
+    <div class="eyebrow">Half two · MCP Registry</div>
+    <h2>Tools that mount themselves.</h2>
+    <p>Each domain pack declares the tools it needs. When the Principal hires faculty for that domain, the registry mounts them — scoped &amp; sandboxed per agent.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>MCP tool</th><th>Capabilities</th><th>Auto-mounts for</th></tr></thead>
+      <tbody>
+        <tr><td class="ag">Python sandbox</td><td class="mono">run code · tests · stdout</td><td class="mono">coding · backend</td></tr>
+        <tr><td class="ag">Jupyter / notebook</td><td class="mono">data · plots · dataframes</td><td class="mono">data science · ML</td></tr>
+        <tr><td class="ag">Web search</td><td class="mono">retrieve · cite</td><td class="mono">theory · research</td></tr>
+        <tr><td class="ag">Git / filesystem</td><td class="mono">repos · diffs · review</td><td class="mono">projects · capstone</td></tr>
+        <tr><td class="ag">SQL / database</td><td class="mono">query · schema</td><td class="mono">databases · analytics</td></tr>
+        <tr><td class="ag">Browser / canvas</td><td class="mono">render · preview</td><td class="mono">web · design</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Auto-connect">
+  <div class="sec-head">
+    <div class="eyebrow">Auto-connect in action</div>
+    <h2>"Teach me backend Python" → tools online.</h2>
+  </div>
+  <div class="flow" style="grid-template-columns:repeat(5,1fr)">
+    <div class="fstep"><div class="n">1</div><h4>Domain resolved</h4><p>Pack = "Backend Python".</p></div>
+    <div class="fstep"><div class="n">2</div><h4>Tools declared</h4><p>Pack lists Python + Git + SQL.</p></div>
+    <div class="fstep"><div class="n">3</div><h4>Faculty hired</h4><p>Lab professor spun up.</p></div>
+    <div class="fstep"><div class="n">4</div><h4>Mount &amp; scope</h4><p>Sandbox bound to that agent.</p></div>
+    <div class="fstep"><div class="n">5</div><h4>Live</h4><p>Lessons run code inline.</p></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Interfaces">
+  <div class="sec-head"><div class="eyebrow">Interfaces · the contract</div><h2>What it provides, what it emits.</h2></div>
+  <div class="io2">
+    <div class="iocard in">
+      <h3><span class="d"></span>Provides&nbsp;·&nbsp;API</h3>
+      <div class="evt"><code>complete(agent, prompt)</code><span>LLM call, routed &amp; metered</span></div>
+      <div class="evt"><code>tool.invoke(agent, call)</code><span>scoped MCP tool call</span></div>
+      <div class="evt"><code>bind(agent, model)</code><span>set / swap an agent's model</span></div>
+      <div class="evt"><code>mount(agent, tools)</code><span>attach MCP tools</span></div>
+    </div>
+    <div class="iocard out">
+      <h3><span class="d"></span>Emits&nbsp;·&nbsp;outputs</h3>
+      <div class="evt"><code>tool.invoked</code><span>traced tool call + result</span></div>
+      <div class="evt"><code>budget.threshold</code><span>agent nearing its cap</span></div>
+      <div class="evt"><code>provider.fallback</code><span>switched on error</span></div>
+      <div class="evt"><code>cost.metered</code><span>spend per call</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Subsystem C2 complete</div>
+  <h2 style="font-size:24px">Next: the scoreboard.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Reward &amp; Grading system turns every outcome into faculty grades and student ranks.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Subsystem - Event Bus.html"><span class="k">subsystem c1</span>Event Bus</a>
+  </div>
+  <p class="foot-note">AULA · Subsystem C2 · Connection Layer · any model behind any agent; tools that mount themselves.</p>
+</footer>
+
+</body>
+</html>

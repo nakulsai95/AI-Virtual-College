@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Product Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0e1014;
+    --bg-2:#12151c;
+    --surface:#171b23;
+    --surface-2:#1d222c;
+    --border:rgba(255,255,255,.08);
+    --border-strong:rgba(255,255,255,.15);
+    --ink:#e9ebf2;
+    --muted:#9aa0b0;
+    --faint:#646b7d;
+    --accent:#6e8efb;
+    --accent-soft:rgba(110,142,251,.14);
+    --mint:#46d6ad;
+    --coral:#f0846b;
+    --gold:#e6c06a;
+    --r:14px;
+    --maxw:1120px;
+    --font-d:"Space Grotesk",sans-serif;
+    --font-b:"Sora",sans-serif;
+    --font-m:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-b);
+    font-weight:300;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(circle at 18% -5%, rgba(110,142,251,.10), transparent 42%),
+      radial-gradient(circle at 92% 8%, rgba(70,214,173,.05), transparent 40%);
+    background-attachment:fixed;
+  }
+  ::selection{background:var(--accent-soft);color:#fff}
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:50;
+    backdrop-filter:blur(14px);
+    background:rgba(14,16,20,.72);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar .inner{
+    max-width:var(--maxw);margin:0 auto;padding:14px 28px;
+    display:flex;align-items:center;justify-content:space-between;gap:20px;
+  }
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-d);font-weight:700;letter-spacing:.16em;font-size:15px}
+  .brand .mark{
+    width:26px;height:26px;border-radius:7px;
+    background:linear-gradient(150deg,var(--accent),#9a7bf0);
+    display:grid;place-items:center;color:#fff;font-size:14px;font-weight:700;
+    box-shadow:0 0 0 1px rgba(255,255,255,.12) inset, 0 6px 18px rgba(110,142,251,.4);
+  }
+  .navlinks{display:flex;gap:26px}
+  .navlinks a{
+    color:var(--muted);text-decoration:none;font-size:13px;font-family:var(--font-m);
+    letter-spacing:.02em;transition:color .15s;
+  }
+  .navlinks a:hover{color:var(--ink)}
+  .pill{
+    font-family:var(--font-m);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent);border:1px solid var(--border-strong);border-radius:100px;padding:6px 13px;
+    background:var(--accent-soft);
+  }
+  @media(max-width:760px){.navlinks{display:none}}
+
+  /* ---------- layout ---------- */
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  section{padding:78px 0 12px}
+  .eyebrow{
+    font-family:var(--font-m);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--accent);display:flex;align-items:center;gap:10px;margin-bottom:18px;
+  }
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--accent);opacity:.6}
+  h1{font-family:var(--font-d);font-weight:700;letter-spacing:-.02em;line-height:1.02}
+  h2{font-family:var(--font-d);font-weight:600;font-size:34px;letter-spacing:-.01em;line-height:1.1}
+  h3{font-family:var(--font-d);font-weight:600;font-size:18px;letter-spacing:-.01em}
+  .lede{color:var(--muted);font-size:18px;max-width:62ch;font-weight:300}
+  .sec-head{margin-bottom:38px}
+  .sec-head p{color:var(--muted);font-size:16px;max-width:64ch;margin-top:12px}
+
+  /* ---------- hero ---------- */
+  .hero{padding-top:64px}
+  .hero h1{font-size:clamp(46px,7vw,84px);margin:8px 0 22px}
+  .hero h1 .grad{
+    background:linear-gradient(100deg,var(--accent) 10%,#c0a3ff 60%,var(--mint));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .hero .lede{font-size:21px;margin-bottom:34px}
+  .hero-meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
+  .chip{
+    font-family:var(--font-m);font-size:12px;color:var(--muted);
+    border:1px solid var(--border);border-radius:8px;padding:9px 13px;background:var(--surface);
+    display:flex;align-items:center;gap:8px;
+  }
+  .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .chip.m .dot{background:var(--mint)} .chip.c .dot{background:var(--coral)} .chip.g .dot{background:var(--gold)}
+
+  /* ---------- generic card ---------- */
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+    padding:22px;transition:border-color .18s, transform .18s;
+  }
+  .card:hover{border-color:var(--border-strong)}
+  .grid{display:grid;gap:16px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:900px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:600px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+  .num{font-family:var(--font-m);font-size:12px;color:var(--faint);margin-bottom:14px}
+  .card p{color:var(--muted);font-size:14.5px;margin-top:9px}
+  .card.assume h3{font-size:16px}
+  .card.assume .tag{font-family:var(--font-m);font-size:11px;color:var(--accent);letter-spacing:.06em}
+
+  /* ---------- org chart ---------- */
+  .org{position:relative;margin-top:8px}
+  .tier{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;position:relative}
+  .tier + .tier{margin-top:54px}
+  .tier + .tier::before{
+    content:"";position:absolute;top:-40px;left:50%;width:1px;height:26px;background:var(--border-strong);
+  }
+  .agent{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+    padding:16px;width:228px;position:relative;transition:border-color .18s,transform .18s;
+  }
+  .agent:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .agent .top{display:flex;align-items:center;gap:12px}
+  .av{
+    width:44px;height:44px;border-radius:11px;flex-shrink:0;position:relative;overflow:hidden;
+    display:grid;place-items:center;font-family:var(--font-d);font-weight:700;font-size:16px;color:#fff;
+    box-shadow:0 0 0 1px rgba(255,255,255,.1) inset;
+  }
+  .av.principal{background:linear-gradient(150deg,#6e8efb,#9a7bf0)}
+  .av.provost{background:linear-gradient(150deg,#46d6ad,#3aa6d6)}
+  .av.examiner{background:linear-gradient(150deg,#f0846b,#e6627e)}
+  .av.registrar{background:linear-gradient(150deg,#e6c06a,#dc9a52)}
+  .av.prof{background:linear-gradient(150deg,#7b86f5,#5fb0e8)}
+  .agent .role{font-family:var(--font-m);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .agent .name{font-family:var(--font-d);font-weight:600;font-size:15.5px;margin-top:1px}
+  .agent .desc{color:var(--muted);font-size:12.5px;margin-top:12px;line-height:1.45}
+  .agent .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:13px}
+  .agent .meta span{
+    font-family:var(--font-m);font-size:10px;color:var(--muted);
+    border:1px solid var(--border);border-radius:6px;padding:3px 7px;
+  }
+  .agent.lead{width:270px;border-color:var(--border-strong);box-shadow:0 14px 40px rgba(110,142,251,.12)}
+  .tier-label{
+    font-family:var(--font-m);font-size:11px;color:var(--faint);letter-spacing:.14em;text-transform:uppercase;
+    text-align:center;margin-bottom:18px;
+  }
+
+  /* ---------- flow steps ---------- */
+  .flow{display:grid;grid-template-columns:repeat(7,1fr);gap:0;margin-top:8px;position:relative}
+  .step{position:relative;padding:0 12px}
+  .step:not(:last-child)::after{
+    content:"→";position:absolute;right:-9px;top:30px;color:var(--faint);font-size:18px;z-index:2;
+  }
+  .step .ico{
+    width:54px;height:54px;border-radius:13px;background:var(--surface);border:1px solid var(--border);
+    display:grid;place-items:center;font-family:var(--font-d);font-weight:700;color:var(--accent);font-size:19px;margin-bottom:14px;
+  }
+  .step h4{font-family:var(--font-d);font-weight:600;font-size:14px;letter-spacing:-.01em}
+  .step p{color:var(--muted);font-size:12px;margin-top:6px;line-height:1.4}
+  .step .who{font-family:var(--font-m);font-size:10px;color:var(--accent);margin-top:8px;letter-spacing:.04em}
+  @media(max-width:900px){.flow{grid-template-columns:repeat(2,1fr);gap:24px}.step::after{display:none}}
+
+  /* ---------- reward loop ---------- */
+  .loop{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;align-items:stretch}
+  @media(max-width:820px){.loop{grid-template-columns:1fr}}
+  .rewardbox{padding:24px;border-radius:var(--r);border:1px solid var(--border);position:relative;overflow:hidden}
+  .rewardbox.pos{background:linear-gradient(160deg,rgba(70,214,173,.08),var(--surface));border-color:rgba(70,214,173,.3)}
+  .rewardbox.neg{background:linear-gradient(160deg,rgba(240,132,107,.08),var(--surface));border-color:rgba(240,132,107,.3)}
+  .rewardbox h3{display:flex;align-items:center;gap:10px;font-size:17px}
+  .rewardbox h3 .sig{font-family:var(--font-m);font-weight:600;font-size:15px}
+  .pos .sig{color:var(--mint)} .neg .sig{color:var(--coral)}
+  .trigger{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--border)}
+  .trigger:last-child{border-bottom:none}
+  .trigger .dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0}
+  .pos .trigger .dot{background:var(--mint)} .neg .trigger .dot{background:var(--coral)}
+  .trigger b{font-family:var(--font-d);font-weight:600;font-size:14px;display:block}
+  .trigger span{color:var(--muted);font-size:13px}
+  .policy{
+    background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:22px;
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .policy .row{display:flex;align-items:center;gap:14px}
+  .policy .ic{width:38px;height:38px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-family:var(--font-d);font-weight:700;flex-shrink:0;border:1px solid rgba(110,142,251,.25)}
+  .policy .row b{font-family:var(--font-d);font-weight:600;font-size:14px;display:block}
+  .policy .row span{color:var(--muted);font-size:12.5px}
+
+  /* ---------- connection layer ---------- */
+  .conn{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.conn{grid-template-columns:1fr}}
+  .provtrack{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px}
+  .prov{
+    font-family:var(--font-m);font-size:12px;color:var(--ink);background:var(--surface-2);
+    border:1px solid var(--border);border-radius:9px;padding:9px 13px;display:flex;align-items:center;gap:9px;
+  }
+  .prov .lg{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;font-size:10px;font-weight:700;color:#0e1014;font-family:var(--font-d)}
+  .mcprow{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
+  .mcprow:last-child{border-bottom:none}
+  .mcprow .l{display:flex;align-items:center;gap:12px}
+  .mcprow .mc{width:34px;height:34px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);display:grid;place-items:center;font-family:var(--font-m);font-size:13px;color:var(--accent)}
+  .mcprow b{font-family:var(--font-d);font-weight:600;font-size:13.5px;display:block}
+  .mcprow span{color:var(--faint);font-size:11.5px;font-family:var(--font-m)}
+  .auto{font-family:var(--font-m);font-size:10px;color:var(--mint);border:1px solid rgba(70,214,173,.3);border-radius:100px;padding:4px 9px;background:rgba(70,214,173,.08);white-space:nowrap}
+
+  /* ---------- goal hierarchy ---------- */
+  .hier{display:flex;flex-direction:column;gap:0;position:relative;margin-left:6px}
+  .hlvl{display:flex;align-items:flex-start;gap:18px;padding:12px 0;position:relative}
+  .hlvl .bullet{width:18px;height:18px;border-radius:50%;border:2px solid var(--accent);display:grid;place-items:center;flex-shrink:0;margin-top:3px;position:relative;z-index:2;background:var(--bg)}
+  .hlvl .bullet i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .hlvl:not(:last-child)::before{content:"";position:absolute;left:8px;top:22px;bottom:-12px;width:2px;background:var(--border-strong)}
+  .hlvl .body b{font-family:var(--font-d);font-weight:600;font-size:15px}
+  .hlvl .body .k{font-family:var(--font-m);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+  .hlvl .body p{color:var(--muted);font-size:13px;margin-top:3px}
+  .hlvl:nth-child(1) .bullet{border-color:var(--accent)} 
+  .hlvl:nth-child(2) .bullet{border-color:#8b86f0} .hlvl:nth-child(2) .bullet i{background:#8b86f0}
+  .hlvl:nth-child(3) .bullet{border-color:var(--mint)} .hlvl:nth-child(3) .bullet i{background:var(--mint)}
+  .hlvl:nth-child(4) .bullet{border-color:var(--gold)} .hlvl:nth-child(4) .bullet i{background:var(--gold)}
+  .hlvl:nth-child(5) .bullet{border-color:var(--coral)} .hlvl:nth-child(5) .bullet i{background:var(--coral)}
+
+  /* ---------- screen map ---------- */
+  .screens{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:900px){.screens{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:600px){.screens{grid-template-columns:1fr}}
+  .scard{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px}
+  .scard .sn{font-family:var(--font-m);font-size:11px;color:var(--faint)}
+  .scard b{font-family:var(--font-d);font-weight:600;font-size:15px}
+  .scard p{color:var(--muted);font-size:12.5px}
+  .scard .status{margin-top:auto;font-family:var(--font-m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:100px;align-self:flex-start;border:1px solid var(--border)}
+  .scard .status.next{color:var(--accent);border-color:rgba(110,142,251,.3);background:var(--accent-soft)}
+  .scard .status.q{color:var(--muted)}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:60px;border-top:1px solid var(--border);padding:46px 0 70px}
+  footer .nextgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:26px}
+  @media(max-width:760px){footer .nextgrid{grid-template-columns:1fr}}
+  .next{padding:18px;border-radius:12px;border:1px dashed var(--border-strong);background:var(--bg-2)}
+  .next .q{font-family:var(--font-m);font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase}
+  .next p{color:var(--muted);font-size:14px;margin-top:8px}
+  .foot-note{color:var(--faint);font-size:13px;margin-top:38px;font-family:var(--font-m)}
+
+  .divider{height:1px;background:var(--border);margin:6px 0;max-width:var(--maxw);margin-left:auto;margin-right:auto}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <nav class="navlinks">
+      <a href="#brief">Brief</a>
+      <a href="#org">Faculty</a>
+      <a href="#guide">Guide</a>
+      <a href="#loop">Core Loop</a>
+      <a href="#reward">Reinforcement</a>
+      <a href="#connect">Connections</a>
+      <a href="#screens">Screens</a>
+    </nav>
+    <span class="pill">Architecture v1</span>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Product Architecture · Virtual AI College</div>
+  <h1>A college that <span class="grad">hires itself.</span></h1>
+  <p class="lede">You say what you want to learn. <b style="color:var(--ink);font-weight:500">AULA</b> hires a faculty of agents, designs your semester, and runs the whole institution — attendance, lessons, projects, exams. Teachers are graded on whether <i>you</i> actually learn. When you struggle, they get penalized and rewrite how they teach.</p>
+  <div class="hero-meta">
+    <span class="chip"><span class="dot"></span>Principal &amp; faculty are agents</span>
+    <span class="chip m"><span class="dot"></span>Reinforcement loop on teachers</span>
+    <span class="chip g"><span class="dot"></span>Auto-connects subject MCPs</span>
+    <span class="chip c"><span class="dot"></span>Any LLM, per role</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:64px"></div>
+
+<!-- BRIEF / ASSUMPTIONS -->
+<section id="brief" class="wrap" data-screen-label="Brief">
+  <div class="sec-head">
+    <div class="eyebrow">How I read your brief</div>
+    <h2>Assumptions I'm designing against.</h2>
+    <p>Built from your reference (Paperclip's agent control-plane) and your notes. Correct anything here and the rest reshapes around it.</p>
+  </div>
+  <div class="grid g4">
+    <div class="card assume">
+      <div class="num">01</div>
+      <span class="tag">THE PRIMITIVE</span>
+      <h3 style="margin-top:6px">An org of agents</h3>
+      <p>Same shape as Paperclip — org chart, goals, governance — but the "company" is a <b style="color:var(--ink);font-weight:500">college</b> and the goal is a learner's mastery, not revenue.</p>
+    </div>
+    <div class="card assume">
+      <div class="num">02</div>
+      <span class="tag">THE USER</span>
+      <h3 style="margin-top:6px">The student is the board</h3>
+      <p>You watch the college get hired, <b style="color:var(--ink);font-weight:500">review &amp; request changes</b>, then enroll. After that you're a student inside a running institution.</p>
+    </div>
+    <div class="card assume">
+      <div class="num">03</div>
+      <span class="tag">THE TWIST</span>
+      <h3 style="margin-top:6px">Teachers are graded</h3>
+      <p>Faculty earn a teaching grade from <b style="color:var(--ink);font-weight:500">your</b> outcomes. Penalties flow to the teacher, never the student — failure rewrites their method.</p>
+    </div>
+    <div class="card assume">
+      <div class="num">04</div>
+      <span class="tag">THE PLUMBING</span>
+      <h3 style="margin-top:6px">Tools wire themselves</h3>
+      <p>A coding course auto-connects a Python MCP &amp; sandbox. Any LLM can back any agent. You can swap models per role.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ORG CHART -->
+<section id="org" class="wrap" data-screen-label="Faculty org">
+  <div class="sec-head">
+    <div class="eyebrow">The faculty</div>
+    <h2>An institution, staffed by agents.</h2>
+    <p>Every role is an agent with its own context pack (syllabus, rubric, persona), its own LLM, and its own kanban. Avatars ship as anime portraits by default — theme-swappable per student.</p>
+  </div>
+
+  <div class="org">
+    <div class="tier">
+      <div class="tier-label" style="position:absolute;top:-34px;width:100%">Governance &amp; orchestration</div>
+      <div class="agent lead">
+        <div class="top">
+          <div class="av principal">P</div>
+          <div><div class="role">Orchestrator</div><div class="name">Principal</div></div>
+        </div>
+        <div class="desc">Reads your intent, hires the faculty, sets the semester goal, and answers to you — the board. Approves every other hire.</div>
+        <div class="meta"><span>hiring</span><span>budget</span><span>governance</span></div>
+      </div>
+    </div>
+
+    <div class="tier">
+      <div class="agent">
+        <div class="top"><div class="av provost">V</div><div><div class="role">Head of pedagogy</div><div class="name">Provost</div></div></div>
+        <div class="desc">Owns teaching methodology. When a teacher's grade drops, the Provost ships them an updated lesson plan.</div>
+        <div class="meta"><span>methodology</span><span>policy updates</span></div>
+      </div>
+      <div class="agent">
+        <div class="top"><div class="av examiner">E</div><div><div class="role">Assessment</div><div class="name">Examiner</div></div></div>
+        <div class="desc">Writes quizzes, mid-terms &amp; finals. Grades blind, sets the pass bar, triggers re-enrollment on failure.</div>
+        <div class="meta"><span>exams</span><span>grading</span><span>pass-gate</span></div>
+      </div>
+      <div class="agent">
+        <div class="top"><div class="av registrar">R</div><div><div class="role">Records</div><div class="name">Registrar</div></div></div>
+        <div class="desc">Tracks attendance, enrollment, transcripts &amp; the academic calendar. Source of truth for progress.</div>
+        <div class="meta"><span>attendance</span><span>transcript</span></div>
+      </div>
+    </div>
+
+    <div class="tier">
+      <div class="tier-label" style="position:absolute;top:-34px;width:100%">Teaching faculty · one per subject, hired to fit your goal</div>
+      <div class="agent">
+        <div class="top"><div class="av prof">π</div><div><div class="role">Professor</div><div class="name">Core Subject</div></div></div>
+        <div class="desc">Teaches, runs live lessons, sets assignments &amp; projects, and asks you questions to probe understanding.</div>
+        <div class="meta"><span>lessons</span><span>kanban</span><span>grade: A−</span></div>
+      </div>
+      <div class="agent">
+        <div class="top"><div class="av prof">λ</div><div><div class="role">Professor</div><div class="name">Applied / Lab</div></div></div>
+        <div class="desc">Hands-on, tool-connected. For coding, owns the Python MCP &amp; sandbox; for data, the notebook.</div>
+        <div class="meta"><span>projects</span><span>MCP</span><span>grade: B+</span></div>
+      </div>
+      <div class="agent">
+        <div class="top"><div class="av provost">G</div><div><div class="role">Student-facing</div><div class="name">Personal Guide</div></div></div>
+        <div class="desc">Your always-on concierge. Ask any doubt — the Guide answers or routes you to the right professor, and keeps your kanban moving.</div>
+        <div class="meta"><span>concierge</span><span>routing</span><span>24/7</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:60px"></div>
+
+<!-- PERSONAL GUIDE -->
+<section id="guide" class="wrap" data-screen-label="Personal Guide">
+  <div class="sec-head">
+    <div class="eyebrow">Your way in</div>
+    <h2>One chat. Every doubt. The right teacher, every time.</h2>
+    <p>The Personal Guide is how you actually live in AULA. You never have to know which professor owns a topic — you just ask, and the Guide pulls the right one in.</p>
+  </div>
+  <div class="grid g2" style="align-items:stretch">
+    <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:11px;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--bg-2)">
+        <div class="av provost" style="width:34px;height:34px;border-radius:9px;font-size:14px">G</div>
+        <div><div style="font-family:var(--font-d);font-weight:600;font-size:14px">Personal Guide</div><div style="font-family:var(--font-m);font-size:10.5px;color:var(--mint)">● always on</div></div>
+      </div>
+      <div style="padding:22px;display:flex;flex-direction:column;gap:13px;flex:1;justify-content:center">
+        <div style="align-self:flex-end;max-width:80%;background:var(--accent-soft);border:1px solid rgba(110,142,251,.25);border-radius:14px 14px 4px 14px;padding:11px 14px;font-size:13.5px;color:var(--ink)">I don't get how JWT auth actually works.</div>
+        <div style="align-self:flex-start;max-width:84%;background:var(--surface-2);border:1px solid var(--border);border-radius:14px 14px 14px 4px;padding:11px 14px;font-size:13.5px;color:var(--muted)">That lives with your <b style="color:var(--ink);font-weight:500">APIs &amp; Databases</b> professor. Bringing them in &mdash; they'll write you a short blog on it.</div>
+        <div style="align-self:flex-start;display:flex;align-items:center;gap:10px;font-family:var(--font-m);font-size:11px;color:var(--faint);padding-left:2px">
+          <div class="av prof" style="width:26px;height:26px;border-radius:7px;font-size:11px">π</div>
+          Prof. routed · drafting “JWTs, end to end” &rarr;
+        </div>
+      </div>
+    </div>
+    <div class="policy" style="justify-content:center">
+      <div class="eyebrow" style="margin-bottom:4px">How routing works</div>
+      <div class="row"><div class="ic">1</div><div><b>You ask anything</b><span>One box, any phrasing. No need to pick a subject or a teacher.</span></div></div>
+      <div class="row"><div class="ic">2</div><div><b>Guide classifies the doubt</b><span>Maps it to the owning professor &mdash; or answers itself if it's light.</span></div></div>
+      <div class="row"><div class="ic">3</div><div><b>Right teacher steps in</b><span>The professor responds in their voice and teaches the concept properly.</span></div></div>
+      <div class="row"><div class="ic">4</div><div><b>It lands on your board</b><span>The answer becomes a lesson card &mdash; revisitable, not lost in chat.</span></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:60px"></div>
+
+<!-- TEACHING MODALITY -->
+<section class="wrap" data-screen-label="Teaching modality">
+  <div class="sec-head">
+    <div class="eyebrow">How teachers teach</div>
+    <h2>Lessons are authored, not just chatted.</h2>
+    <p>Professors teach by producing real artifacts. We start with written blogs &mdash; the highest-signal, lowest-cost format &mdash; and grow into richer media as the platform matures.</p>
+  </div>
+  <div class="grid g4">
+    <div class="card" style="border-color:rgba(110,142,251,.3);background:linear-gradient(160deg,var(--accent-soft),var(--surface))">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="step" style="padding:0"><div class="ico" style="margin:0">¶</div></div><span class="status next" style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;color:var(--accent);border:1px solid rgba(110,142,251,.3);background:var(--accent-soft)">Now</span></div>
+      <h3>Blogs</h3>
+      <p>Written, structured explainers with code &amp; examples. Each answer is a permanent, linkable lesson.</p>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="step" style="padding:0"><div class="ico" style="margin:0;color:var(--faint)">▣</div></div><span style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;color:var(--muted);border:1px solid var(--border)">Next</span></div>
+      <h3>Images &amp; diagrams</h3>
+      <p>Generated visuals &mdash; architecture diagrams, annotated figures &mdash; embedded inside the blog.</p>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="step" style="padding:0"><div class="ico" style="margin:0;color:var(--faint)">◐</div></div><span style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;color:var(--muted);border:1px solid var(--border)">Later</span></div>
+      <h3>Animations</h3>
+      <p>Step-through motion for processes &mdash; how a request flows, how a sort runs &mdash; played inline.</p>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div class="step" style="padding:0"><div class="ico" style="margin:0;color:var(--faint)">▶</div></div><span style="font-family:var(--font-m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;color:var(--muted);border:1px solid var(--border)">Later</span></div>
+      <h3>Videos</h3>
+      <p>Narrated walkthroughs for the concepts that genuinely need a voice and a screen.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:60px"></div>
+
+<!-- CORE LOOP -->
+<section id="loop" class="wrap" data-screen-label="Core loop">
+  <div class="sec-head">
+    <div class="eyebrow">The magic moment</div>
+    <h2>From "I want to learn X" to enrolled.</h2>
+    <p>The opening sequence — the part you watch happen live, the way you watch Paperclip build a company.</p>
+  </div>
+  <div class="flow">
+    <div class="step"><div class="ico">1</div><h4>Intake</h4><p>You describe the goal &amp; your level in one box.</p><div class="who">STUDENT</div></div>
+    <div class="step"><div class="ico">2</div><h4>Hiring</h4><p>Principal drafts the faculty &amp; org, live.</p><div class="who">PRINCIPAL</div></div>
+    <div class="step"><div class="ico">3</div><h4>Build</h4><p>Semester, subjects, calendar &amp; tools assemble.</p><div class="who">FACULTY</div></div>
+    <div class="step"><div class="ico">4</div><h4>Review</h4><p>You inspect &amp; request changes to the plan.</p><div class="who">STUDENT</div></div>
+    <div class="step"><div class="ico">5</div><h4>Enroll</h4><p>Approve. Attendance &amp; kanbans go live.</p><div class="who">STUDENT</div></div>
+    <div class="step"><div class="ico">6</div><h4>Learn</h4><p>Lessons, questions, assignments, projects.</p><div class="who">PROFESSORS</div></div>
+    <div class="step"><div class="ico">7</div><h4>Assess</h4><p>Exams &amp; results feed the reward loop.</p><div class="who">EXAMINER</div></div>
+  </div>
+</section>
+
+<!-- REINFORCEMENT -->
+<section id="reward" class="wrap" data-screen-label="Reinforcement loop">
+  <div class="sec-head">
+    <div class="eyebrow">Faculty reinforcement loop</div>
+    <h2>The student never loses points. The teacher does.</h2>
+    <p>Outcomes are reward signal. Reward flows to faculty grades; failure triggers a methodology rewrite from the Provost. This is the mechanic that makes AULA more than a chatbot tutor.</p>
+  </div>
+  <div class="loop">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="rewardbox neg">
+        <h3><span class="sig">− reward</span> Penalties (teacher only)</h3>
+        <div class="trigger"><div class="dot"></div><div><b>You can't answer a probe question</b><span>Small negative reward to the professor. You're untouched — it's a signal the explanation didn't land.</span></div></div>
+        <div class="trigger"><div class="dot"></div><div><b>You fail a mid-term</b><span>Full negative reward. You don't pass; you re-enroll the unit. The teacher's grade drops hard.</span></div></div>
+        <div class="trigger"><div class="dot"></div><div><b>Attendance / momentum stalls</b><span>Minor penalty + TA nudge. Persistent stall escalates to the Provost.</span></div></div>
+      </div>
+      <div class="rewardbox pos">
+        <h3><span class="sig">+ reward</span> Rewards</h3>
+        <div class="trigger"><div class="dot"></div><div><b>You answer correctly &amp; pass</b><span>Positive reward to the teaching agent; their grade rises and their method is reinforced.</span></div></div>
+        <div class="trigger"><div class="dot"></div><div><b>You finish the semester</b><span>Faculty graded on your final mastery — the only score that ultimately matters.</span></div></div>
+      </div>
+    </div>
+    <div class="policy">
+      <div class="eyebrow" style="margin-bottom:4px">On failure →</div>
+      <div class="row"><div class="ic">1</div><div><b>Examiner gates</b><span>Marks the unit failed, blocks progression, flags the responsible teacher.</span></div></div>
+      <div class="row"><div class="ic">2</div><div><b>Teacher grade drops</b><span>Full negative reward applied to the professor's running grade.</span></div></div>
+      <div class="row"><div class="ic">3</div><div><b>Provost rewrites method</b><span>Ships an updated teaching plan — new pacing, new examples, new modality.</span></div></div>
+      <div class="row"><div class="ic">4</div><div><b>Student re-enrolls</b><span>Same unit, new approach. No penalty to you — just another shot.</span></div></div>
+      <div style="margin-top:6px;padding-top:14px;border-top:1px solid var(--border);font-family:var(--font-m);font-size:12px;color:var(--faint)">loop continues until mastery ✓</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:60px"></div>
+
+<!-- CONNECTIONS -->
+<section id="connect" class="wrap" data-screen-label="Connection layer">
+  <div class="sec-head">
+    <div class="eyebrow">Connection layer</div>
+    <h2>Any model. The right tools, wired automatically.</h2>
+    <p>Two registries sit under the faculty: an <b style="color:var(--ink);font-weight:500">LLM router</b> (pick any provider per agent) and an <b style="color:var(--ink);font-weight:500">MCP registry</b> (subjects auto-mount the tools they need).</p>
+  </div>
+  <div class="conn">
+    <div class="card">
+      <h3>LLM router</h3>
+      <p style="margin-bottom:0">Each agent is backed by a model you choose. Principal on a strong reasoner, TA on something fast &amp; cheap — your call, swappable anytime.</p>
+      <div class="provtrack">
+        <span class="prov"><span class="lg" style="background:#d79a72">C</span>Claude</span>
+        <span class="prov"><span class="lg" style="background:#74aa9c">G</span>GPT</span>
+        <span class="prov"><span class="lg" style="background:#5fb0e8">◆</span>Gemini</span>
+        <span class="prov"><span class="lg" style="background:#8b86f0">L</span>Llama</span>
+        <span class="prov"><span class="lg" style="background:#e6c06a">M</span>Mistral</span>
+        <span class="prov"><span class="lg" style="background:#46d6ad">+</span>Custom</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>MCP registry <span class="auto" style="margin-left:6px">auto-connect</span></h3>
+      <p style="margin:6px 0 4px">Mounted by subject. A coding course brings these online without you lifting a finger.</p>
+      <div class="mcprow"><div class="l"><div class="mc">py</div><div><b>Python sandbox</b><span>code · exec · tests</span></div></div><span class="auto">coding</span></div>
+      <div class="mcprow"><div class="l"><div class="mc">⌥</div><div><b>Jupyter / notebook</b><span>data · plots</span></div></div><span class="auto">data sci</span></div>
+      <div class="mcprow"><div class="l"><div class="mc">⌕</div><div><b>Web search</b><span>research · citations</span></div></div><span class="auto">theory</span></div>
+      <div class="mcprow"><div class="l"><div class="mc">{}</div><div><b>Git / filesystem</b><span>projects · review</span></div></div><span class="auto">projects</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- GOAL HIERARCHY -->
+<section class="wrap" data-screen-label="Goal hierarchy">
+  <div class="sec-head">
+    <div class="eyebrow">Goal alignment</div>
+    <h2>Every task traces up to your goal.</h2>
+    <p>Like Paperclip's mission→task chain, but academic. Each agent always knows what you're learning and why this task exists.</p>
+  </div>
+  <div class="grid g2" style="align-items:start">
+    <div class="card" style="padding:26px">
+      <div class="hier">
+        <div class="hlvl"><div class="bullet"><i></i></div><div class="body"><div class="k">Learning mission</div><b>"Become job-ready in backend Python."</b><p>Your words, captured at intake.</p></div></div>
+        <div class="hlvl"><div class="bullet"><i></i></div><div class="body"><div class="k">Semester</div><b>12-week program · 4 subjects</b><p>Principal's plan, reviewed by you.</p></div></div>
+        <div class="hlvl"><div class="bullet"><i></i></div><div class="body"><div class="k">Subject</div><b>APIs &amp; Databases</b><p>Owned by one professor agent.</p></div></div>
+        <div class="hlvl"><div class="bullet"><i></i></div><div class="body"><div class="k">Module</div><b>Build a REST service</b><p>A unit with its own kanban &amp; exam.</p></div></div>
+        <div class="hlvl"><div class="bullet"><i></i></div><div class="body"><div class="k">Task</div><b>Write &amp; test the /users endpoint</b><p>Runs in the Python MCP sandbox.</p></div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <h3>Two kanbans, mirrored</h3>
+        <p>Every student has a board (lessons → doing → submitted → graded). Every teacher has one too (prep → teaching → assessing → reviewing). They sync at the module boundary so handoffs are explicit.</p>
+      </div>
+      <div class="card">
+        <h3>Attendance = heartbeats</h3>
+        <p>Paperclip's agent heartbeats become class attendance. Sessions are scheduled; the Registrar logs presence; momentum feeds the reward loop.</p>
+      </div>
+      <div class="card">
+        <h3>Results = the transcript</h3>
+        <p>Exams, project grades and the running teacher grades all land in one record — your transcript and the faculty's performance review, side by side.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:60px"></div>
+
+<!-- SCREEN MAP -->
+<section id="screens" class="wrap" data-screen-label="Screen map">
+  <div class="sec-head">
+    <div class="eyebrow">What I'll design next</div>
+    <h2>The screens.</h2>
+    <p>The interactive prototype I'll build after you sign off on this architecture. Order reflects the core loop.</p>
+  </div>
+  <div class="screens">
+    <div class="scard"><div class="sn">S1</div><b>Intake</b><p>"What do you want to learn?" — goal, level, intent.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S2</div><b>Hiring &amp; build</b><p>Watch the college get hired &amp; the semester assemble, live.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S3</div><b>Semester review</b><p>Inspect subjects &amp; faculty; request changes or enroll.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S4</div><b>Personal Guide</b><p>The always-on chat — ask doubts, get routed to the right teacher.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S5</div><b>Student kanban</b><p>Your tasks, progress, attendance &amp; momentum.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S6</div><b>Blog lesson</b><p>The artifact a professor authors — read, ask, get probed.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S7</div><b>Teacher kanban &amp; plan</b><p>A professor's board + their teaching methodology.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S8</div><b>Exams &amp; results</b><p>Assessment, pass-gate, re-enroll trigger.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S9</div><b>Faculty grades</b><p>Teacher performance review &amp; reward history.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S10</div><b>Principal's command center</b><p>All agents, budgets &amp; governance at a glance.</p><span class="status next">Building next</span></div>
+    <div class="scard"><div class="sn">S11</div><b>Connections</b><p>LLM router &amp; MCP registry settings.</p><span class="status next">Building next</span></div>
+  </div>
+</section>
+
+<!-- FOOTER / OPEN QUESTIONS -->
+<footer class="wrap" data-screen-label="Open questions">
+  <div class="eyebrow">Before I build the screens — three calls for you</div>
+  <h2 style="font-size:26px">Decisions that change the design.</h2>
+  <div class="nextgrid">
+    <div class="next"><div class="q">Q1 · Tone of penalty</div><p>Should faculty penalties feel <b style="color:var(--ink);font-weight:500">visible &amp; dramatic</b> (a teacher gets "fired" / replaced) or <b style="color:var(--ink);font-weight:500">quiet &amp; systemic</b> (just a grade nudge)? It sets the emotional register.</p></div>
+    <div class="next"><div class="q">Q2 · Live vs instant</div><p>Should hiring &amp; build <b style="color:var(--ink);font-weight:500">play out live</b> (watch it assemble, Paperclip-style) or <b style="color:var(--ink);font-weight:500">resolve instantly</b> to a finished plan you review?</p></div>
+    <div class="next"><div class="q">Q3 · Anime depth</div><p>How far does the anime theme go — <b style="color:var(--ink);font-weight:500">just avatars</b>, or full <b style="color:var(--ink);font-weight:500">character UI</b> (named personas, dialogue bubbles, voice)? I'll wire it as a theme either way.</p></div>
+  </div>
+  <p class="foot-note">AULA · Architecture v1 · Next: 2–3 visual directions for the Intake + Hiring screens, then the full clickable prototype.</p>
+</footer>
+
+</body>
+</html>

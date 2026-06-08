@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Curriculum Builder</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">subsystem</a>&nbsp; / &nbsp;<b>Curriculum Builder</b></div>
+    <span class="pill">subsystem · C6</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Subsystem architecture · the planner</div>
+  <h1>A mission becomes a <span class="grad">semester.</span></h1>
+  <p class="lede">The Principal decides <i>who</i> to hire; the Curriculum Builder decides <i>what</i> they teach and <i>when</i>. It decomposes your mission and the domain pack into a structured semester — subjects, modules, tasks, exams, on a calendar — and rebuilds it when you re-enroll.</p>
+  <div class="tags">
+    <span class="tag"><b>input</b><span class="eq">=</span>mission + domain pack</span>
+    <span class="tag"><b>output</b><span class="eq">=</span>semester object</span>
+    <span class="tag"><b>grain</b><span class="eq">=</span>subject→module→task</span>
+    <span class="tag"><b>rebuilds</b><span class="eq">=</span>on re-enroll</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Decomposition">
+  <div class="sec-head">
+    <div class="eyebrow">The decomposition</div>
+    <h2>The goal hierarchy, build-side.</h2>
+    <p>Each level traces up to your mission — the same chain every agent reads for context.</p>
+  </div>
+  <div class="pipe">
+    <div class="pstep"><div class="pn">1</div><div class="pc"><b>Mission</b><span>"Become job-ready in backend Python" — captured at intake.</span></div></div>
+    <div class="pstep"><div class="pn">2</div><div class="pc"><b>Subjects</b><span>The pack's syllabus → the subjects this mission needs (APIs, Databases…).</span></div></div>
+    <div class="pstep"><div class="pn">3</div><div class="pc"><b>Modules</b><span>Each subject → ordered units, each with its own kanban &amp; exam.</span></div></div>
+    <div class="pstep"><div class="pn">4</div><div class="pc"><b>Tasks</b><span>Each module → concrete tasks, some tool-backed (run in the sandbox).</span></div></div>
+    <div class="pstep"><div class="pn">5</div><div class="pc"><b>Exams</b><span>Gates attached at module &amp; mid-semester boundaries.</span></div></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Algorithm">
+  <div class="sec-head">
+    <div class="eyebrow">The build algorithm</div>
+    <h2>How the plan is assembled.</h2>
+  </div>
+  <div class="flow" style="grid-template-columns:repeat(6,1fr)">
+    <div class="fstep"><div class="n">1</div><h4>Scope</h4><p>Depth &amp; breadth from mission + level.</p></div>
+    <div class="fstep"><div class="n">2</div><h4>Select pack</h4><p>Curated or generated domain pack.</p></div>
+    <div class="fstep"><div class="n">3</div><h4>Sequence</h4><p>Order modules by prerequisite graph.</p></div>
+    <div class="fstep"><div class="n">4</div><h4>Calendar</h4><p>Place sessions &amp; pace per preferences.</p></div>
+    <div class="fstep"><div class="n">5</div><h4>Attach exams</h4><p>Wire gates &amp; the pass-bar.</p></div>
+    <div class="fstep"><div class="n">6</div><h4>Wire tools</h4><p>Mount MCP tools per module.</p></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Output">
+  <div class="sec-head">
+    <div class="eyebrow">Output schema</div>
+    <h2>The semester object.</h2>
+    <p>What the builder emits for the review screen &amp; the running college.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td><code class="k">missionRef</code></td><td class="mono">ref</td><td class="mono">traces to the goal</td></tr>
+        <tr><td><code class="k">subjects[]</code></td><td class="mono">Subject{ professorRef, modules[] }</td><td class="mono">one professor each</td></tr>
+        <tr><td><code class="k">modules[]</code></td><td class="mono">Module{ concepts[], tasks[], exam }</td><td class="mono">a unit with a gate</td></tr>
+        <tr><td><code class="k">calendar</code></td><td class="mono">Session[] over weeks</td><td class="mono">attendance schedule</td></tr>
+        <tr><td><code class="k">exams[]</code></td><td class="mono">Exam{ type, bar, weight }</td><td class="mono">probes → final</td></tr>
+        <tr><td><code class="k">toolBindings</code></td><td class="mono">module → mcpToolId[]</td><td class="mono">auto-mount map</td></tr>
+        <tr><td><code class="k">status</code></td><td class="mono">enum proposed|approved|running</td><td class="mono">board-gated</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout accent" style="margin-top:20px">
+    <h3>It rebuilds, not just builds</h3>
+    <p>On a failed gate, a pace change, or a Provost methodology update, the builder re-plans the affected modules — re-sequencing, slowing, or injecting a prerequisite — without scrapping the whole semester.</p>
+    <div class="big">re-enroll · pace change · methodology update → partial rebuild</div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Subsystem C6 complete</div>
+  <h2 style="font-size:24px">Next: aiming it at a job.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Career &amp; Outcomes engine bends the curriculum toward what employers want.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Subsystem - Domain Library.html"><span class="k">subsystem c5</span>Domain Library</a>
+  </div>
+  <p class="foot-note">AULA · Subsystem C6 · Curriculum Builder · mission → subjects → modules → tasks → exams, replannable.</p>
+</footer>
+
+</body>
+</html>

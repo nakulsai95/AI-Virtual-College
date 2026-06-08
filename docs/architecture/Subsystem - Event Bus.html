@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Event Bus Architecture</title>
+<link rel="stylesheet" href="assets/component.css" />
+<style>
+  .bus{margin-top:8px}
+  .busrow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .busnode{font-family:var(--font-m);font-size:12px;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 13px}
+  .busbar{height:42px;border-radius:11px;margin:16px 0;background:linear-gradient(90deg,rgba(110,142,251,.16),rgba(70,214,173,.16));border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-family:var(--font-m);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);position:relative}
+  .busbar::before,.busbar::after{content:"";position:absolute;width:2px;height:14px;background:var(--border-strong)}
+  .busbar::before{top:-15px;left:20%} .busbar::after{bottom:-15px;right:20%}
+  .tcat td.t{font-family:var(--font-m);font-size:12px;color:var(--accent);white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">subsystem</a>&nbsp; / &nbsp;<b>Event Bus</b></div>
+    <span class="pill">subsystem · C1</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Subsystem architecture · the nervous system</div>
+  <h1>The Event Bus is how they <span class="grad">talk.</span></h1>
+  <p class="lede">No agent calls another directly. Every action is an <b class="ink">event</b> published to a topic; interested agents subscribe. That's what makes the college observable, replayable and decoupled — you can pause, swap or add an agent without rewiring the rest.</p>
+  <div class="tags">
+    <span class="tag"><b>pattern</b><span class="eq">=</span>pub / sub</span>
+    <span class="tag"><b>delivery</b><span class="eq">=</span>at-least-once</span>
+    <span class="tag"><b>order</b><span class="eq">=</span>per student</span>
+    <span class="tag"><b>log</b><span class="eq">=</span>append-only audit</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Topology">
+  <div class="sec-head">
+    <div class="eyebrow">Topology</div>
+    <h2>Publishers up, subscribers down, one bus between.</h2>
+  </div>
+  <div class="bus">
+    <div class="busrow">
+      <span class="busnode">Principal</span><span class="busnode">Faculty</span><span class="busnode">Examiner</span><span class="busnode">Provost</span><span class="busnode">Guide</span><span class="busnode">Registrar</span><span class="busnode">Counselor</span>
+    </div>
+    <div class="busbar">AULA event bus · topics · trace · audit</div>
+    <div class="busrow">
+      <span class="busnode">Principal</span><span class="busnode">Faculty</span><span class="busnode">Examiner</span><span class="busnode">Provost</span><span class="busnode">Guide</span><span class="busnode">Registrar</span><span class="busnode">Counselor</span><span class="busnode">UI</span>
+    </div>
+  </div>
+  <p class="foot-note" style="text-align:center;margin-top:18px">Every agent is both a publisher and a subscriber. The UI is a read-only subscriber that renders the live state.</p>
+</section>
+
+<div class="divider" style="margin-top:48px"></div>
+
+<section class="wrap" data-screen-label="Envelope">
+  <div class="sec-head">
+    <div class="eyebrow">The event envelope</div>
+    <h2>Every event, the same shape.</h2>
+    <p>The schema Claude Code should model first — everything on the bus is one of these.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Field</th><th>Type</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code class="k">id</code></td><td class="mono">uuid</td><td class="mono">Unique event id</td></tr>
+        <tr><td><code class="k">topic</code></td><td class="mono">string</td><td class="mono">e.g. exam.result</td></tr>
+        <tr><td><code class="k">actor</code></td><td class="mono">agentRef</td><td class="mono">Who published it</td></tr>
+        <tr><td><code class="k">subject</code></td><td class="mono">studentId</td><td class="mono">Whose journey it concerns (ordering key)</td></tr>
+        <tr><td><code class="k">payload</code></td><td class="mono">json</td><td class="mono">Topic-specific body</td></tr>
+        <tr><td><code class="k">traceId</code></td><td class="mono">uuid</td><td class="mono">Links a causal chain of events</td></tr>
+        <tr><td><code class="k">ts</code></td><td class="mono">iso8601</td><td class="mono">Emit time</td></tr>
+        <tr><td><code class="k">version</code></td><td class="mono">int</td><td class="mono">Schema version of the payload</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Topics">
+  <div class="sec-head">
+    <div class="eyebrow">The topic catalogue</div>
+    <h2>Grouped by what they're about.</h2>
+    <p>The full set used across the agent specs, in one place.</p>
+  </div>
+  <div class="twrap">
+    <table class="tcat">
+      <thead><tr><th>Group</th><th>Topics</th><th>Primary publisher</th></tr></thead>
+      <tbody>
+        <tr><td class="t">lifecycle</td><td class="mono">intake.submitted · plan.proposed · agent.hired · agent.replaced · board.directive</td><td class="mono">Principal</td></tr>
+        <tr><td class="t">learning</td><td class="mono">lesson.published · probe.asked · assignment.created · doubt.raised · route.assigned</td><td class="mono">Faculty / Guide</td></tr>
+        <tr><td class="t">assessment</td><td class="mono">unit.completed · exam.result · reward.signal · reenroll.triggered</td><td class="mono">Examiner</td></tr>
+        <tr><td class="t">state</td><td class="mono">attendance.tick · enrollment.changed · transcript.updated · mastery.updated · student.model</td><td class="mono">Registrar</td></tr>
+        <tr><td class="t">adaptation</td><td class="mono">grade.changed · methodology.update · methodology.reverted</td><td class="mono">Provost</td></tr>
+        <tr><td class="t">wellbeing</td><td class="mono">chat.sentiment · nudge.sent · pace.advice · risk.flagged</td><td class="mono">Counselor</td></tr>
+        <tr><td class="t">cost</td><td class="mono">budget.set · budget.threshold · tool.invoked</td><td class="mono">Connection layer</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Guarantees">
+  <div class="sec-head"><div class="eyebrow">Delivery &amp; guarantees</div><h2>What the bus promises.</h2></div>
+  <div class="grid g2">
+    <div class="callout accent"><h3>Ordered per student</h3><p>Events for one learner are delivered in order (keyed on <code class="k">subject</code>), so an agent never sees an exam result before the lesson that caused it.</p></div>
+    <div class="callout mint"><h3>At-least-once + idempotent</h3><p>Delivery retries on failure; handlers are written to be idempotent on <code class="k">id</code>, so a redelivery is harmless.</p></div>
+    <div class="callout gold"><h3>Append-only audit</h3><p>Every event is persisted immutably. The whole college is a replayable log — full tracing via <code class="k">traceId</code>.</p></div>
+    <div class="callout coral"><h3>Replayable</h3><p>Re-running the log rebuilds any agent's state from scratch — the basis for debugging, rollback &amp; "what changed".</p></div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Subsystem C1 complete</div>
+  <h2 style="font-size:24px">Next: the substrate under every agent.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Connection Layer routes any LLM behind any agent and auto-mounts the MCP tools a subject needs.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Component - Counselor.html"><span class="k">component 07</span>Counselor</a>
+  </div>
+  <p class="foot-note">AULA · Subsystem C1 · Event Bus · decoupled, ordered, replayable — the contract every agent shares.</p>
+</footer>
+
+</body>
+</html>

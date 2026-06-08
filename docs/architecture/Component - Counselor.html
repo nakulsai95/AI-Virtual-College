@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Counselor Architecture</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">component</a>&nbsp; / &nbsp;<b>Counselor</b></div>
+    <span class="pill">component 07</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Component architecture · 07 of n</div>
+  <h1>The Counselor is the <span class="grad">guardian.</span></h1>
+  <p class="lede">A college that only optimizes mastery will burn its students out. The Counselor is the counterweight: it watches for frustration, fatigue and stalling, and it can slow the whole machine down. Its reward is the one thing no teacher's is — your <b class="ink">sustained engagement</b>.</p>
+  <div class="tags">
+    <span class="tag"><b>role</b><span class="eq">=</span>wellbeing &amp; pacing</span>
+    <span class="tag"><b>watches</b><span class="eq">=</span>burnout signals</span>
+    <span class="tag"><b>reward</b><span class="eq">=</span>sustained momentum</span>
+    <span class="tag"><b>can</b><span class="eq">=</span>override the pressure</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Signals">
+  <div class="sec-head">
+    <div class="eyebrow">Detection signals</div>
+    <h2>What burnout looks like in the data.</h2>
+    <p>The Counselor fuses behavioural and sentiment signals into a single risk read — acting before the learner quits.</p>
+  </div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Signal</th><th>Source</th><th>What it suggests</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">Session length shrinking</td><td class="ag">Registrar</td><td class="mono">Fatigue / waning interest</td></tr>
+        <tr><td class="mono">Probe failures + late-night activity</td><td class="ag">Faculty + clock</td><td class="mono">Grinding under stress</td></tr>
+        <tr><td class="mono">Days skipped, streak broken</td><td class="ag">Registrar</td><td class="mono">Disengagement risk</td></tr>
+        <tr><td class="mono">Negative tone in chat</td><td class="ag">Guide sentiment</td><td class="mono">Frustration building</td></tr>
+        <tr><td class="mono">Re-enroll + rival pulling ahead</td><td class="ag">Examiner + leaderboard</td><td class="mono">Discouragement</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Intervention">
+  <div class="sec-head">
+    <div class="eyebrow">The intervention ladder</div>
+    <h2>The gentlest fix that works.</h2>
+    <p>The Counselor climbs only as far as it must — most risk resolves at a nudge.</p>
+  </div>
+  <div class="split">
+    <div class="pipe">
+      <div class="pstep"><div class="pn">1</div><div class="pc"><b>Notice</b><span>Risk score crosses a soft threshold.</span></div></div>
+      <div class="pstep"><div class="pn">2</div><div class="pc"><b>Nudge</b><span>An encouraging, specific message — celebrate a win, reframe a setback.</span></div></div>
+      <div class="pstep"><div class="pn">3</div><div class="pc"><b>Adjust pace</b><span>Ask the Principal to slow the schedule or lighten the load.</span></div></div>
+      <div class="pstep"><div class="pn">4</div><div class="pc"><b>Recommend a break</b><span>Protect a rest day; pause streak penalties.</span></div></div>
+      <div class="pstep"><div class="pn">5</div><div class="pc"><b>Escalate</b><span>Persistent risk → flag to the Principal &amp; surface to the learner.</span></div></div>
+    </div>
+    <div class="callout mint">
+      <h3>The counterweight</h3>
+      <p>Faculty are rewarded for your mastery; the rival pushes you; the leaderboard ranks you. The Counselor is the only agent rewarded for your <i>sustainability</i> — and it can overrule the pressure when it's too much.</p>
+      <div class="big">mastery ⟂ wellbeing — the Counselor holds the balance</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Modules">
+  <div class="sec-head"><div class="eyebrow">Inside the Counselor</div><h2>Six modules.</h2></div>
+  <div class="grid g3">
+    <div class="mod"><div class="ix">M1<span class="badge">monitor</span></div><h3>Signal Monitor</h3><p>Streams behavioural signals from the Registrar &amp; faculty in near-real-time.</p><div class="io">from · <b>event bus</b></div></div>
+    <div class="mod"><div class="ix">M2<span class="badge">sentiment</span></div><h3>Sentiment Reader</h3><p>Reads tone from Guide conversations &amp; reflections for emotional signal.</p><div class="io">privacy · <b>scoped</b></div></div>
+    <div class="mod"><div class="ix">M3<span class="badge">model</span></div><h3>Burnout Model</h3><p>Fuses signals into a single risk score with a trend, not just a snapshot.</p><div class="io">outputs · <b>risk 0–1</b></div></div>
+    <div class="mod"><div class="ix">M4<span class="badge">nudge</span></div><h3>Nudge Composer</h3><p>Writes timely, specific encouragement — never generic cheerleading.</p><div class="io">to · <b>learner</b></div></div>
+    <div class="mod"><div class="ix">M5<span class="badge">pacing</span></div><h3>Pace Advisor</h3><p>Recommends concrete schedule changes to the Principal.</p><div class="io">emits · <b>pace.advice</b></div></div>
+    <div class="mod"><div class="ix">M6<span class="badge">escalate</span></div><h3>Escalation</h3><p>Raises sustained risk to the Principal &amp; offers the learner a check-in.</p><div class="io">on · <b>high risk</b></div></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Interfaces">
+  <div class="sec-head"><div class="eyebrow">Interfaces · the contract</div><h2>What it consumes, what it emits.</h2></div>
+  <div class="io2">
+    <div class="iocard in">
+      <h3><span class="d"></span>Subscribes&nbsp;·&nbsp;inputs</h3>
+      <div class="evt"><code>attendance.tick</code><span>momentum &amp; gaps</span></div>
+      <div class="evt"><code>exam.result</code><span>setbacks &amp; failures</span></div>
+      <div class="evt"><code>chat.sentiment</code><span>emotional tone</span></div>
+      <div class="evt"><code>leaderboard.delta</code><span>rival pressure</span></div>
+    </div>
+    <div class="iocard out">
+      <h3><span class="d"></span>Emits&nbsp;·&nbsp;outputs</h3>
+      <div class="evt"><code>nudge.sent</code><span>encouragement to learner</span></div>
+      <div class="evt"><code>pace.advice</code><span>schedule change to Principal</span></div>
+      <div class="evt"><code>break.recommended</code><span>protected rest day</span></div>
+      <div class="evt"><code>risk.flagged</code><span>escalation on high risk</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Component 07 complete · agents done</div>
+  <h2 style="font-size:24px">Next: the subsystems.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">All seven agents are specced. The subsystems wire them together — starting with the event bus they all speak on.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Component - Registrar.html"><span class="k">component 06</span>Registrar</a>
+  </div>
+  <p class="foot-note">AULA · Component 07 · Counselor · the only agent rewarded for the learner's sustainability.</p>
+</footer>
+
+</body>
+</html>

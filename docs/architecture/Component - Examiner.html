@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Examiner Architecture</title>
+<link rel="stylesheet" href="assets/component.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark">A</span>AULA</div>
+    <div class="crumb"><a href="Architecture Index.html">component</a>&nbsp; / &nbsp;<b>Examiner</b></div>
+    <span class="pill">component 04</span>
+  </div>
+</div>
+
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Component architecture · 04 of n</div>
+  <h1>The Examiner is the <span class="grad">referee.</span></h1>
+  <p class="lede">Reward is only as good as its measurement. The Examiner sets the pass-bar, grades blind, and decides whether you advance or repeat. Its verdict becomes the scalar that rewards or penalizes the teacher — and the <b class="ink">gate</b> that wakes the Provost on failure.</p>
+  <div class="tags">
+    <span class="tag"><b>role</b><span class="eq">=</span>assessment + pass-gate</span>
+    <span class="tag"><b>output</b><span class="eq">=</span>pass / fail + reward</span>
+    <span class="tag"><b>on fail</b><span class="eq">=</span>block + re-enroll</span>
+    <span class="tag"><b>principle</b><span class="eq">=</span>blind &amp; calibrated</span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:52px"></div>
+
+<section class="wrap" data-screen-label="Pass gate">
+  <div class="sec-head">
+    <div class="eyebrow">The pass-gate</div>
+    <h2>One verdict, two cascades.</h2>
+    <p>Every assessment resolves to a gate. Pass advances the learner and rewards the teacher; fail blocks progression, penalizes the teacher, and triggers a policy update.</p>
+  </div>
+  <div class="split">
+    <div class="pipe">
+      <div class="pstep"><div class="pn">1</div><div class="pc"><b>Assemble</b><span>Draw varied items for the unit from the item bank.</span></div></div>
+      <div class="pstep"><div class="pn">2</div><div class="pc"><b>Administer</b><span>Present to the learner; capture answers &amp; reasoning.</span></div></div>
+      <div class="pstep"><div class="pn">3</div><div class="pc"><b>Grade blind</b><span>Score without knowing which teacher taught it.</span></div></div>
+      <div class="pstep"><div class="pn">4</div><div class="pc"><b>Compare to bar</b><span>Score vs. the unit's pass threshold.</span></div></div>
+      <div class="pstep"><div class="pn">5</div><div class="pc"><b>Gate</b><span>PASS → advance + reward. FAIL → block + penalty + Provost.</span></div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="callout mint">
+        <h3>On pass</h3>
+        <p>Learner advances to the next unit. Teacher receives <b style="color:var(--mint)">+ reward</b> sized to the assessment weight; grade rises.</p>
+        <div class="big">advance · +reward · grade ↑</div>
+      </div>
+      <div class="callout coral">
+        <h3>On fail (mid-term)</h3>
+        <p>Learner does <b class="ink">not</b> pass and re-enrolls the unit — no penalty to them. Teacher receives full <b style="color:var(--coral)">− reward</b>; the Provost rewrites the method.</p>
+        <div class="big">block · re-enroll · −reward · wake Provost</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Modules">
+  <div class="sec-head"><div class="eyebrow">Inside the Examiner</div><h2>Six modules.</h2></div>
+  <div class="grid g3">
+    <div class="mod"><div class="ix">M1<span class="badge">author</span></div><h3>Exam Composer</h3><p>Builds assessments from the unit's learning objectives &amp; an item bank — fresh items each attempt.</p><div class="io">reads · <b>curriculum</b></div></div>
+    <div class="mod"><div class="ix">M2<span class="badge">administer</span></div><h3>Proctor</h3><p>Delivers the assessment, captures answers, timing &amp; the learner's stated reasoning.</p><div class="io">to · <b>student</b></div></div>
+    <div class="mod"><div class="ix">M3<span class="badge">grade</span></div><h3>Blind Grader</h3><p>Scores answers against a rubric without the teacher's identity — kills grade inflation.</p><div class="io">rubric · <b>per objective</b></div></div>
+    <div class="mod"><div class="ix">M4<span class="badge">gate</span></div><h3>Pass-Gate</h3><p>Compares the score to the unit bar and decides advance vs. re-enroll.</p><div class="io">emits · <b>exam.result</b></div></div>
+    <div class="mod"><div class="ix">M5<span class="badge">reward</span></div><h3>Reward Emitter</h3><p>Converts the verdict into the teacher's reward signal, weighted by assessment stakes.</p><div class="io">to · <b>reward system</b></div></div>
+    <div class="mod"><div class="ix">M6<span class="badge">calibrate</span></div><h3>Calibrator</h3><p>Tunes the pass-bar &amp; item difficulty so the gate stays fair across learners.</p><div class="io">its own · <b>reward</b></div></div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Assessment types">
+  <div class="sec-head"><div class="eyebrow">Assessment types</div><h2>From a quick probe to the capstone.</h2>
+    <p>Each type carries a reward weight and a gating role. Only the heavy ones block progression.</p></div>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Type</th><th>When</th><th>Reward weight</th><th>Gates?</th></tr></thead>
+      <tbody>
+        <tr><td class="ag">Probe</td><td class="mono">mid-lesson</td><td class="r pos">±1</td><td class="mono">no</td></tr>
+        <tr><td class="ag">Quiz</td><td class="mono">end of lesson</td><td class="r pos">±2</td><td class="mono">soft</td></tr>
+        <tr><td class="ag">Unit exam</td><td class="mono">end of module</td><td class="r pos">±5</td><td class="mono">yes</td></tr>
+        <tr><td class="ag">Mid-term</td><td class="mono">mid-semester</td><td class="r neg">±10 ↺</td><td class="mono">hard · re-enroll</td></tr>
+        <tr><td class="ag">Final / capstone</td><td class="mono">end of semester</td><td class="r pos">+20 ⟂</td><td class="mono">graduation</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout accent" style="margin-top:16px">
+    <h3>Integrity by design</h3>
+    <p>Items vary every attempt, grading is blind to the teacher, and "explain your reasoning" probes catch pattern-matching. The Examiner is the one agent the faculty can't charm.</p>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:56px"></div>
+
+<section class="wrap" data-screen-label="Interfaces">
+  <div class="sec-head"><div class="eyebrow">Interfaces · the contract</div><h2>What it consumes, what it emits.</h2></div>
+  <div class="io2">
+    <div class="iocard in">
+      <h3><span class="d"></span>Subscribes&nbsp;·&nbsp;inputs</h3>
+      <div class="evt"><code>unit.completed</code><span>learner ready for assessment</span></div>
+      <div class="evt"><code>student.answer</code><span>responses to grade</span></div>
+      <div class="evt"><code>curriculum.objectives</code><span>what to test against</span></div>
+      <div class="evt"><code>principal.directive</code><span>re-test or recalibrate</span></div>
+    </div>
+    <div class="iocard out">
+      <h3><span class="d"></span>Emits&nbsp;·&nbsp;outputs</h3>
+      <div class="evt"><code>exam.result</code><span>pass / fail + score</span></div>
+      <div class="evt"><code>reward.signal</code><span>teacher reward from verdict</span></div>
+      <div class="evt"><code>reenroll.triggered</code><span>on a failed gate</span></div>
+      <div class="evt"><code>transcript.updated</code><span>result to the record</span></div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Component 04 complete</div>
+  <h2 style="font-size:24px">Next: the learner's way in.</h2>
+  <p style="color:var(--muted);font-size:15px;margin-top:10px;max-width:60ch">The Personal Guide is the one agent you talk to directly — it routes every doubt to the right teacher.</p>
+  <div class="nav2">
+    <a class="navbtn" href="Architecture Index.html"><span class="k">back to</span>Build checklist</a>
+    <a class="navbtn" href="Component - Provost.html"><span class="k">component 03</span>Provost</a>
+  </div>
+  <p class="foot-note">AULA · Component 04 · Examiner · the measurement instrument behind every reward.</p>
+</footer>
+
+</body>
+</html>

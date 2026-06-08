@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AULA — Concepts &amp; Theming</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0e1014; --bg-2:#12151c; --surface:#171b23; --surface-2:#1d222c;
+    --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.15);
+    --ink:#e9ebf2; --muted:#9aa0b0; --faint:#646b7d;
+    /* themed */
+    --accent:#f5a623; --accent-2:#3b82f6;
+    --accent-soft:rgba(245,166,35,.14); --glow:rgba(245,166,35,.16); --tint:rgba(245,166,35,.08);
+    --r:14px; --maxw:1200px;
+    --font-d:"Space Grotesk",sans-serif; --font-b:"Sora",sans-serif; --font-m:"JetBrains Mono",monospace; --font-jp:"Noto Sans JP",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--font-b); font-weight:300; line-height:1.5;
+    -webkit-font-smoothing:antialiased; transition:background .5s;
+    background-image:
+      radial-gradient(circle at 15% -8%, var(--glow), transparent 44%),
+      radial-gradient(circle at 95% 4%, var(--tint), transparent 40%);
+    background-attachment:fixed;
+  }
+  ::selection{background:var(--accent-soft);color:#fff}
+
+  .topbar{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(14,16,20,.74);border-bottom:1px solid var(--border)}
+  .topbar .inner{max-width:var(--maxw);margin:0 auto;padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-d);font-weight:700;letter-spacing:.14em;font-size:15px}
+  .brand .mark{width:27px;height:27px;border-radius:7px;background:linear-gradient(150deg,var(--accent),var(--accent-2));display:grid;place-items:center;color:#fff;font-family:var(--font-jp);font-weight:700;font-size:14px;box-shadow:0 0 0 1px rgba(255,255,255,.14) inset,0 6px 20px var(--glow);transition:background .5s}
+  .brand .wm{transition:color .3s}
+
+  /* theme switch */
+  .themeswitch{display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:4px;max-width:56vw;overflow-x:auto;scrollbar-width:none}
+  .themeswitch::-webkit-scrollbar{display:none}
+  .themeswitch button{
+    font-family:var(--font-jp);font-size:14px;color:var(--muted);background:none;border:none;cursor:pointer;
+    width:34px;height:34px;border-radius:50%;transition:all .2s;display:grid;place-items:center;flex-shrink:0;
+  }
+  .themeswitch button.active{background:var(--accent);color:#0e1014;font-weight:700}
+  .themeswitch button:not(.active):hover{color:var(--ink);background:var(--surface-2)}
+  @media(max-width:760px){.brand .wm{display:none}.themeswitch{max-width:64vw}}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:14px}
+  .tcard .termline{font-family:var(--font-m);font-size:11px;color:var(--muted);margin-top:13px;line-height:1.55}
+  .tcard .termline b{color:var(--ink);font-weight:600}
+  .tcard.activecard{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset,0 14px 40px var(--glow)}
+
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  section{padding:60px 0 8px}
+  .eyebrow{font-family:var(--font-m);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:10px;margin-bottom:16px;transition:color .3s}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--accent);opacity:.6}
+  h1{font-family:var(--font-d);font-weight:700;letter-spacing:-.02em;line-height:1.02}
+  h2{font-family:var(--font-d);font-weight:600;font-size:32px;letter-spacing:-.01em;line-height:1.12}
+  .lede{color:var(--muted);font-size:18px;max-width:64ch;font-weight:300}
+
+  /* hero */
+  .hero{padding-top:60px}
+  .hero h1{font-size:clamp(40px,6.4vw,72px);margin:10px 0 20px}
+  .hero h1 .grad{background:linear-gradient(100deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;transition:background .4s}
+  .hero .lede{font-size:20px}
+  .themehint{margin-top:30px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:var(--font-m);font-size:12.5px;color:var(--faint)}
+  .themehint .arrow{color:var(--accent)}
+  .themechip{font-family:var(--font-m);font-size:12px;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:inline-flex;align-items:center;gap:8px}
+  .themechip .sw{width:11px;height:11px;border-radius:3px}
+
+  /* section heads */
+  .sec-head{margin-bottom:30px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+  .sec-head .l p{color:var(--muted);font-size:16px;max-width:60ch;margin-top:10px}
+  .catnum{font-family:var(--font-jp);font-size:13px;color:var(--faint)}
+
+  /* concept categories */
+  .cat{padding:46px 0 8px;border-top:1px solid var(--border)}
+  .cat:first-of-type{border-top:none}
+  .cathead{display:flex;align-items:baseline;gap:16px;margin-bottom:22px}
+  .cathead .ix{font-family:var(--font-jp);font-weight:700;font-size:15px;color:var(--accent);width:34px;height:34px;border-radius:9px;background:var(--accent-soft);display:grid;place-items:center;flex-shrink:0;transition:all .3s}
+  .cathead h3{font-family:var(--font-d);font-weight:600;font-size:23px;letter-spacing:-.01em}
+  .cathead .sub{color:var(--muted);font-size:14.5px;margin-top:3px}
+
+  .cards{display:grid;gap:14px;grid-template-columns:repeat(4,1fr)}
+  @media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.cards{grid-template-columns:1fr}}
+  .idea{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:9px;transition:border-color .18s,transform .18s;position:relative;overflow:hidden}
+  .idea:hover{border-color:var(--accent);transform:translateY(-3px)}
+  .idea::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:0;transition:opacity .2s}
+  .idea:hover::before{opacity:.8}
+  .idea .h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .idea b{font-family:var(--font-d);font-weight:600;font-size:15.5px;letter-spacing:-.01em}
+  .idea .star{color:var(--accent);font-size:13px;flex-shrink:0}
+  .idea p{color:var(--muted);font-size:13px;line-height:1.46}
+  .idea .flav{font-family:var(--font-m);font-size:10.5px;color:var(--faint);letter-spacing:.02em;margin-top:auto;padding-top:9px;display:flex;align-items:center;gap:7px}
+  .idea .flav::before{content:"◈";color:var(--accent-2);font-size:9px}
+
+  /* glossary */
+  .glosswrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-top:6px}
+  table.gloss{width:100%;border-collapse:collapse;font-size:14px}
+  table.gloss th,table.gloss td{text-align:left;padding:13px 18px;border-bottom:1px solid var(--border)}
+  table.gloss thead th{font-family:var(--font-m);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);background:var(--bg-2)}
+  table.gloss thead th.live{color:var(--accent)}
+  table.gloss tbody tr:last-child td{border-bottom:none}
+  table.gloss td:first-child{font-family:var(--font-m);font-size:12px;color:var(--faint)}
+  table.gloss td b{font-family:var(--font-d);font-weight:600;color:var(--ink)}
+  table.gloss .colA{color:var(--muted)} 
+  table.gloss .liveCol{color:var(--accent);font-family:var(--font-d);font-weight:600}
+  @media(max-width:640px){table.gloss th:nth-child(3),table.gloss td:nth-child(3),table.gloss th:nth-child(4),table.gloss td:nth-child(4){display:none}}
+
+  /* theme explainer cards */
+  .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:820px){.g3{grid-template-columns:1fr}}
+  .tcard{border:1px solid var(--border);border-radius:var(--r);padding:22px;background:var(--surface);position:relative;overflow:hidden}
+  .tcard .glyph{font-family:var(--font-jp);font-weight:700;font-size:30px;width:54px;height:54px;border-radius:13px;display:grid;place-items:center;color:#0e1014;margin-bottom:16px}
+  .tcard h4{font-family:var(--font-d);font-weight:600;font-size:18px}
+  .tcard .vibe{font-family:var(--font-m);font-size:11px;color:var(--faint);margin-top:2px;letter-spacing:.04em}
+  .tcard p{color:var(--muted);font-size:13.5px;margin-top:12px}
+  .tcard .pal{display:flex;gap:6px;margin-top:16px}
+  .tcard .pal span{width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,.1)}
+  .tcard .try{margin-top:16px;font-family:var(--font-m);font-size:11.5px;background:none;border:1px solid var(--border-strong);color:var(--ink);border-radius:8px;padding:8px 13px;cursor:pointer;transition:all .18s}
+  .tcard .try:hover{background:var(--accent);color:#0e1014;border-color:var(--accent)}
+
+  footer{margin-top:64px;border-top:1px solid var(--border);padding:44px 0 72px}
+  .foot-note{color:var(--faint);font-size:13px;margin-top:14px;font-family:var(--font-m)}
+  .next{padding:18px;border-radius:12px;border:1px dashed var(--border-strong);background:var(--bg-2)}
+  .nextgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
+  @media(max-width:760px){.nextgrid{grid-template-columns:1fr}}
+  .next .q{font-family:var(--font-m);font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase}
+  .next p{color:var(--muted);font-size:14px;margin-top:8px}
+  .divider{height:1px;background:var(--border);max-width:var(--maxw);margin:6px auto}
+</style>
+</head>
+<body data-theme="ninja">
+
+<div class="topbar">
+  <div class="inner">
+    <div class="brand"><span class="mark" data-mark>道</span><span class="wm" data-term="college">The Academy</span></div>
+    <div class="themeswitch" id="switch"></div>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero wrap" data-screen-label="Hero">
+  <div class="eyebrow">Concept expansion · what an AI college could be</div>
+  <h1>You asked for a school.<br />Let's build a <span class="grad">world.</span></h1>
+  <p class="lede">The architecture covers the bones — faculty, lessons, exams, the reward loop. Here's everything that turns it from a tutor into an institution you'd actually want to <i>belong</i> to: peers, ranks, memory, milestones, watchable faculty drama — and a theme <b style="color:var(--ink);font-weight:500">you</b> define.</p>
+  <div class="themehint">
+    <span>Ten skins, live — pick a world</span>
+    <span class="arrow">→</span>
+    <span id="herochips" style="display:flex;gap:7px;flex-wrap:wrap"></span>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:54px"></div>
+
+<!-- CONCEPTS -->
+<section class="wrap" style="padding-top:30px" data-screen-label="Concepts">
+
+  <!-- CAT 1 -->
+  <div class="cat">
+    <div class="cathead">
+      <div class="ix">一</div>
+      <div><h3>You're not learning alone</h3><div class="sub">Solo tutors are lonely. A college has classmates, rivals, and a crowd to measure yourself against.</div></div>
+    </div>
+    <div class="cards">
+      <div class="idea"><div class="h"><b>AI classmates</b><span class="star">★</span></div><p>A cohort of agent-students at your level, asking questions and making the mistakes you'd make — so you learn from theirs too.</p><div class="flav">your study squad</div></div>
+      <div class="idea"><div class="h"><b>A rival</b><span class="star">★</span></div><p>One agent always a step ahead, set to your ambition. Beating them is the carrot the reward loop never gives you directly.</p><div class="flav">the classic shonen rival</div></div>
+      <div class="idea"><div class="h"><b>Study guilds</b></div><p>Group missions where you and AI peers split a project — pair-programming, debate, peer review.</p><div class="flav">team of four</div></div>
+      <div class="idea"><div class="h"><b>The leaderboard</b></div><p>Class ranking by mastery, streaks, and trial scores. Opt-in, anonymous-able, but always there to chase.</p><div class="flav">the wall of names</div></div>
+    </div>
+  </div>
+
+  <!-- CAT 2 -->
+  <div class="cat">
+    <div class="cathead">
+      <div class="ix">二</div>
+      <div><h3>Rank, don't just grade</h3><div class="sub">A percentage is forgettable. A rank you climb — and can lose — is the spine of every great anime.</div></div>
+    </div>
+    <div class="cards">
+      <div class="idea"><div class="h"><b>The rank ladder</b><span class="star">★</span></div><p>Visible tiers — <span data-term="ranks">Novice · Adept · Elite · Master</span> — gated by trials, not time. Promotion is a moment, not a number tick.</p><div class="flav" data-term="exam">Rank Trial</div></div>
+      <div class="idea"><div class="h"><b>Techniques unlocked</b></div><p>Each mastered skill is a named "technique" you collect — a tangible move-set that grows with you.</p><div class="flav">your jutsu list</div></div>
+      <div class="idea"><div class="h"><b>Streaks &amp; training</b></div><p>Daily attendance as a training streak. Momentum is power; breaking it costs you (gently).</p><div class="flav">don't break the chain</div></div>
+      <div class="idea"><div class="h"><b>Hall of names</b></div><p>Top performers earn a permanent mark — a dean's-list that the whole college can see.</p><div class="flav">legends board</div></div>
+    </div>
+  </div>
+
+  <!-- CAT 3 -->
+  <div class="cat">
+    <div class="cathead">
+      <div class="ix">三</div>
+      <div><h3>Make it actually stick</h3><div class="sub">Most learning leaks out in a week. A real college fights forgetting on purpose.</div></div>
+    </div>
+    <div class="cards">
+      <div class="idea"><div class="h"><b>Placement trial</b><span class="star">★</span></div><p>A short diagnostic at intake sets your true level, so the <span data-term="college">Academy</span> never bores or drowns you.</p><div class="flav">the entrance exam</div></div>
+      <div class="idea"><div class="h"><b>Spaced revision</b><span class="star">★</span></div><p>The system resurfaces old material right before you'd forget it — revision missions scheduled by memory decay.</p><div class="flav">flashback episodes</div></div>
+      <div class="idea"><div class="h"><b>Adaptive difficulty</b></div><p>Cruising? It raises the bar. Struggling? It slows down — and the teacher's grade tracks how well it's tuned.</p><div class="flav">rubber-band rival</div></div>
+      <div class="idea"><div class="h"><b>The mastery map</b></div><p>A skill tree of the whole subject — what you've earned, what's locked, what's next. Your progress, visible.</p><div class="flav">the skill tree</div></div>
+    </div>
+  </div>
+
+  <!-- CAT 4 -->
+  <div class="cat">
+    <div class="cathead">
+      <div class="ix">四</div>
+      <div><h3>Milestones &amp; a real ending</h3><div class="sub">Learning needs a finish line worth crossing — and proof you crossed it.</div></div>
+    </div>
+    <div class="cards">
+      <div class="idea"><div class="h"><b>Capstone project</b><span class="star">★</span></div><p>A final, real build that proves the whole <span data-term="semester">Arc</span> — graded by faculty, kept in your portfolio.</p><div class="flav">the final mission</div></div>
+      <div class="idea"><div class="h"><b>Graduation</b><span class="star">★</span></div><p>A genuine ceremony moment when you pass out — the college marks it, the faculty sign off, you level up your title.</p><div class="flav">the graduation arc</div></div>
+      <div class="idea"><div class="h"><b>Verifiable diploma</b></div><p>A shareable credential + transcript: what you learned, who taught you, the trials you passed. Proof, not vibes.</p><div class="flav">the scroll</div></div>
+      <div class="idea"><div class="h"><b>Alumni &amp; mentoring</b></div><p>Graduates can come back as mentor agents for the next cohort — the world keeps turning.</p><div class="flav">become the sensei</div></div>
+    </div>
+  </div>
+
+  <!-- CAT 5 -->
+  <div class="cat">
+    <div class="cathead">
+      <div class="ix">五</div>
+      <div><h3>Faculty you can watch</h3><div class="sub">The agents have a life between your lessons. Letting you see it is the most "alive" thing the product can do.</div></div>
+    </div>
+    <div class="cards">
+      <div class="idea"><div class="h"><b>The faculty council</b><span class="star">★</span></div><p>Teachers meet to discuss <i>your</i> progress — a watchable room where the <span data-term="principal">Headmaster</span> and <span data-term="professor">Sensei</span>s argue your plan.</p><div class="flav">the masters' assembly</div></div>
+      <div class="idea"><div class="h"><b>Office hours</b></div><p>Book a deeper one-on-one with any <span data-term="professor">Sensei</span> when a blog isn't enough — the slow, patient mode.</p><div class="flav">private training</div></div>
+      <div class="idea"><div class="h"><b>Teacher swap</b><span class="star">★</span></div><p>When a <span data-term="professor">Sensei</span>'s grade keeps falling, the <span data-term="principal">Headmaster</span> can replace them. Tenure is earned, not given.</p><div class="flav">a new master appears</div></div>
+      <div class="idea"><div class="h"><b>Specialization &amp; lineage</b></div><p>Each teacher has a style and a "school" of thought — pick the lineage that clicks for you.</p><div class="flav">breathing styles</div></div>
+    </div>
+  </div>
+
+  <!-- CAT 6 -->
+  <div class="cat">
+    <div class="cathead">
+      <div class="ix">六</div>
+      <div><h3>Care, world &amp; systems</h3><div class="sub">The connective tissue — wellbeing, an economy, and the world beyond a single college.</div></div>
+    </div>
+    <div class="cards">
+      <div class="idea"><div class="h"><b>The Counselor</b><span class="star">★</span></div><p>An agent watching for burnout and frustration — it adjusts pace, nudges, and protects you when the rival pressure bites.</p><div class="flav">the wise elder</div></div>
+      <div class="idea"><div class="h"><b>College marketplace</b><span class="star">★</span></div><p>Download a pre-built college — "ML Engineer", "Trading Desk" — full faculty &amp; curriculum, import &amp; run. (Paperclip's Cliphub, for learning.)</p><div class="flav">join a famous academy</div></div>
+      <div class="idea"><div class="h"><b>Token budgets</b></div><p>Every agent has a spend cap. You see what each <span data-term="professor">Sensei</span> costs and govern it — no runaway bills.</p><div class="flav">chakra reserves</div></div>
+      <div class="idea"><div class="h"><b>Real-world missions</b></div><p>Internship-style tasks via MCP — apply the skill to a live repo, a real dataset, an actual problem.</p><div class="flav">the field assignment</div></div>
+    </div>
+  </div>
+
+  <!-- CAT 7 -->
+  <div class="cat">
+    <div class="cathead">
+      <div class="ix">七</div>
+      <div><h3>Learning that pays off</h3><div class="sub">The reason most people study at all: a job, a portfolio, proof. The college should aim the whole journey at an outcome.</div></div>
+    </div>
+    <div class="cards">
+      <div class="idea"><div class="h"><b>Market scan</b><span class="star">★</span></div><p>The college reads what employers actually want for your target role — skills, tools, signals — and bends the curriculum to match.</p><div class="flav">scout the field</div></div>
+      <div class="idea"><div class="h"><b>Showcase project</b><span class="star">★</span></div><p>Your capstone, aimed at hiring managers: a real, portfolio-grade build designed to prove you can do the thing.</p><div class="flav">your signature technique</div></div>
+      <div class="idea"><div class="h"><b>Resume &amp; profile</b></div><p>Turns your transcript, ranks and projects into a sharp resume and public profile — generated, then yours to edit.</p><div class="flav">the record of deeds</div></div>
+      <div class="idea"><div class="h"><b>Company connect</b><span class="star">★</span></div><p>Matches your proven skills to open roles and warm intros — the bridge from "I learned it" to "I got hired."</p><div class="flav">the guild board</div></div>
+    </div>
+  </div>
+
+</section>
+
+<div class="divider" style="margin-top:40px"></div>
+
+<!-- AUDIENCE SPECTRUM -->
+<section class="wrap" data-screen-label="Audience spectrum">
+  <div class="sec-head"><div class="l">
+    <div class="eyebrow">Who it's for</div>
+    <h2>The same college, dialed for the learner.</h2>
+    <p>Purpose flexes with age and goal. A child's academy is pure play — no exams, no placement. A graduate's is outcome-driven and employer-facing. Faculty, tone, and the reward loop all retune; the career layer only switches on when it's wanted.</p>
+  </div></div>
+  <div style="position:relative;margin-top:8px">
+    <div style="position:absolute;top:26px;left:9%;right:9%;height:2px;background:linear-gradient(90deg,var(--accent-2),var(--accent));opacity:.45"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;position:relative">
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:11px">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--bg-2);border:2px solid var(--accent);display:grid;place-items:center;font-family:var(--font-d);font-weight:700;color:var(--accent);position:relative;z-index:2;transition:border-color .3s,color .3s">1</div>
+        <div><b style="font-family:var(--font-d);font-weight:600;font-size:15px;display:block">Young learners</b><span style="color:var(--muted);font-size:12.5px">Play &amp; curiosity. No exams, no placement — just wonder and streaks.</span></div>
+      </div>
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:11px">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--bg-2);border:2px solid var(--accent);display:grid;place-items:center;font-family:var(--font-d);font-weight:700;color:var(--accent);position:relative;z-index:2;transition:border-color .3s,color .3s">2</div>
+        <div><b style="font-family:var(--font-d);font-weight:600;font-size:15px;display:block">School &amp; college</b><span style="color:var(--muted);font-size:12.5px">Real subjects, trials and ranks. Mastery first; career layer optional.</span></div>
+      </div>
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:11px">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--bg-2);border:2px solid var(--accent);display:grid;place-items:center;font-family:var(--font-d);font-weight:700;color:var(--accent);position:relative;z-index:2;transition:border-color .3s,color .3s">3</div>
+        <div><b style="font-family:var(--font-d);font-weight:600;font-size:15px;display:block">Career switchers</b><span style="color:var(--muted);font-size:12.5px">Fast, targeted, market-driven. Showcase project front and centre.</span></div>
+      </div>
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:11px">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--bg-2);border:2px solid var(--accent);display:grid;place-items:center;font-family:var(--font-d);font-weight:700;color:var(--accent);position:relative;z-index:2;transition:border-color .3s,color .3s">4</div>
+        <div><b style="font-family:var(--font-d);font-weight:600;font-size:15px;display:block">Graduates &amp; job-seekers</b><span style="color:var(--muted);font-size:12.5px">Placement-driven. Resume, company connect, real intros — the full outcome engine.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:48px"></div>
+
+<!-- DOMAIN KNOWLEDGE -->
+<section class="wrap" data-screen-label="Domain knowledge">
+  <div class="sec-head"><div class="l">
+    <div class="eyebrow">How it knows your world</div>
+    <h2>Curated where it counts. Auto-generated everywhere else.</h2>
+    <p>Popular domains get a hand-tuned context pack — the right faculty, syllabus, rubrics and MCP tools. Ask for something rare and the <span data-term="principal">Headmaster</span> builds a college on the fly. Coverage is never the blocker.</p>
+  </div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="tcard">
+      <div class="eyebrow" style="margin-bottom:10px">Primary path · verified</div>
+      <h4>Curated domain library</h4>
+      <p>Hand-built context packs: faculty roster, syllabus arc, grading rubrics, and the exact MCP tools that domain needs from day one.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:18px">
+        <span class="themechip">Backend Python</span>
+        <span class="themechip">Machine Learning</span>
+        <span class="themechip">Quant Trading</span>
+        <span class="themechip">UX Design</span>
+        <span class="themechip">Data Engineering</span>
+        <span class="themechip">Calculus</span>
+        <span class="themechip">+ growing</span>
+      </div>
+    </div>
+    <div class="tcard">
+      <div class="eyebrow" style="margin-bottom:10px">Fallback · always works</div>
+      <h4>Auto-generated college</h4>
+      <p>Not in the library? The <span data-term="principal">Headmaster</span> drafts the whole institution from your intent — faculty, <span data-term="semester">Arc</span>, tools — then sharpens it as you learn.</p>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:18px;font-family:var(--font-m);font-size:12px;color:var(--muted);flex-wrap:wrap">
+        <span style="color:var(--ink)">"teach me falconry"</span>
+        <span style="color:var(--accent)">→</span>
+        <span>generate context</span>
+        <span style="color:var(--accent)">→</span>
+        <span style="color:var(--ink)">staffed college</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider" style="margin-top:48px"></div>
+
+<!-- THEME SYSTEM -->
+<section class="wrap" data-screen-label="Theme system">
+  <div class="sec-head">
+    <div class="l">
+      <div class="eyebrow">The theme is yours</div>
+      <h2>One college. Infinite skins.</h2>
+      <p>Theme isn't decoration — it reskins the <b style="color:var(--ink);font-weight:500">whole vocabulary</b>: ranks, roles, the names of exams and arcs, the palette, the energy. Ship a few first-party themes; let users author their own.</p>
+    </div>
+  </div>
+  <div class="gallery" id="themegallery"></div>
+
+  <!-- glossary -->
+  <h3 style="font-family:var(--font-d);font-weight:600;font-size:18px;margin:40px 0 14px">Same product, different words — the live glossary</h3>
+  <div class="glosswrap">
+    <table class="gloss">
+      <thead><tr>
+        <th>Concept</th>
+        <th>Standard</th>
+        <th class="live" id="liveHead">Ninja Path</th>
+      </tr></thead>
+      <tbody id="glossbody"></tbody>
+    </table>
+  </div>
+  <p class="foot-note">The header column for the active theme highlights. Switching themes anywhere on this page rewrites every <span style="color:var(--accent)">accented term</span> in place.</p>
+</section>
+
+<!-- FOOTER -->
+<footer class="wrap" data-screen-label="Next">
+  <div class="eyebrow">Where this leaves us</div>
+  <h2 style="font-size:25px">Pick the world, then I'll build the screens.</h2>
+  <div class="nextgrid">
+    <div class="next"><div class="q">Scope check</div><p>Which of these ~28 ideas are <b style="color:var(--ink);font-weight:500">in</b> for v1? I'd argue for: rival, rank ladder, spaced revision, faculty council, capstone + graduation, the Counselor, and the career layer (market scan + showcase + company connect).</p></div>
+    <div class="next"><div class="q">Theme default</div><p>Ship with <b style="color:var(--ink);font-weight:500">Ninja Path</b> as the default anime skin? Or lead with Standard and let users opt into anime?</p></div>
+    <div class="next"><div class="q">Then — screens</div><p>I'll build <b style="color:var(--ink);font-weight:500">Intake → Hiring → Review</b> in your chosen theme, with the theme switcher baked in, in 2–3 visual directions.</p></div>
+  </div>
+  <p class="foot-note">AULA · Concepts &amp; Theming · themes are genre-inspired with original naming — no copyrighted characters, logos, or art.</p>
+</footer>
+
+<script>
+  const THEMES = {
+    standard:{ name:'Standard', wm:'AULA', mark:'A', vibe:'calm · scholarly · neutral', accent:'#6e8efb', accent2:'#46d6ad', bg:'#0e1014',
+      terms:{ college:'AULA', principal:'Principal', professor:'Professor', semester:'Semester', exam:'Exam', ranks:'Bronze · Silver · Gold · Platinum' } },
+    ninja:{ name:'Ninja Path', wm:'The Academy', mark:'道', vibe:'shonen · missions · ranks', accent:'#f5a623', accent2:'#3b82f6', bg:'#100f0d',
+      terms:{ college:'The Academy', principal:'Headmaster', professor:'Sensei', semester:'Arc', exam:'Rank Trial', ranks:'Novice · Adept · Elite · Master' } },
+    blade:{ name:'Blade Corps', wm:'Blade Corps', mark:'刃', vibe:'dark · slayer · pillars', accent:'#e0566b', accent2:'#2dd4bf', bg:'#0f0d10',
+      terms:{ college:'The Corps', principal:'Commander', professor:'Master', semester:'Season', exam:'The Trial', ranks:'Initiate · Bladesman · Veteran · Pillar' } },
+    spirit:{ name:'Spirit Order', wm:'The Order', mark:'呪', vibe:'cursed · sorcery · grades', accent:'#9b6cff', accent2:'#38bdf8', bg:'#0c0b13',
+      terms:{ college:'The Order', principal:'Headmaster', professor:'Mentor', semester:'Term', exam:'The Ordeal', ranks:'Fourth · Third · Second · First · Special' } },
+    hero:{ name:'Hero Course', wm:'Hero Course', mark:'英', vibe:'bright · pro-heroes', accent:'#4ade80', accent2:'#f43f5e', bg:'#0b0f0d',
+      terms:{ college:'Hero Course', principal:'Principal', professor:'Pro-Hero', semester:'Term', exam:'Provisional Exam', ranks:'Sidekick · Rookie · Pro · Top Hero' } },
+    voyage:{ name:'Grand Voyage', wm:'The Crew', mark:'海', vibe:'adventure · the open sea', accent:'#f6c453', accent2:'#22b8c4', bg:'#0a0e11',
+      terms:{ college:'The Crew', principal:'Captain', professor:'Navigator', semester:'Voyage', exam:'Port Trial', ranks:'Deckhand · Mate · Officer · Captain' } },
+    arcane:{ name:'Arcane Academy', wm:'The Academy', mark:'魔', vibe:'mystic · spellcraft', accent:'#c084fc', accent2:'#f5c542', bg:'#0e0b14',
+      terms:{ college:'The Academy', principal:'Archmage', professor:'Mentor', semester:'Term', exam:'Examination', ranks:'Apprentice · Adept · Mage · Archmage' } },
+    mecha:{ name:'Mecha Program', wm:'The Program', mark:'機', vibe:'sci-fi · pilots · sorties', accent:'#34d3e6', accent2:'#f25f4c', bg:'#0a0d10',
+      terms:{ college:'The Program', principal:'Commander', professor:'Instructor', semester:'Deployment', exam:'Eval Sortie', ranks:'Cadet · Pilot · Ace · Commander' } },
+    cyber:{ name:'Neo Net', wm:'The Net', mark:'電', vibe:'cyberpunk · neon · net', accent:'#ff4d9d', accent2:'#2dd4ff', bg:'#0b0a0f',
+      terms:{ college:'The Net', principal:'Sysop', professor:'Operator', semester:'Cycle', exam:'Benchmark', ranks:'User · Runner · Hacker · Sysop' } },
+    dream:{ name:'Dream Studio', wm:'The Studio', mark:'夢', vibe:'cozy · slice-of-life', accent:'#f4a6c0', accent2:'#9bd1c6', bg:'#12100f',
+      terms:{ college:'The Studio', principal:'Director', professor:'Guide', semester:'Season', exam:'Review', ranks:'Newcomer · Regular · Senior · Lead' } }
+  };
+  const ORDER = ['standard','ninja','blade','spirit','hero','voyage','arcane','mecha','cyber','dream'];
+  const GLOSS = [
+    ['The institution','college'],
+    ['Head of college','principal'],
+    ['Who teaches you','professor'],
+    ['A term of study','semester'],
+    ['Assessment','exam'],
+    ['Rank ladder','ranks']
+  ];
+  const hexRgba=(hex,a)=>{const h=hex.replace('#','');return `rgba(${parseInt(h.substr(0,2),16)},${parseInt(h.substr(2,2),16)},${parseInt(h.substr(4,2),16)},${a})`;};
+
+  // build top switch
+  document.getElementById('switch').innerHTML = ORDER.map(k=>`<button data-set="${k}" title="${THEMES[k].name}">${THEMES[k].mark}</button>`).join('');
+  // build hero chips
+  const hc=document.getElementById('herochips');
+  if(hc) hc.innerHTML = ORDER.map(k=>`<span class="themechip" data-set="${k}" style="cursor:pointer"><span class="sw" style="background:${THEMES[k].accent}"></span>${THEMES[k].name}</span>`).join('');
+  // build gallery
+  document.getElementById('themegallery').innerHTML = ORDER.map(k=>{const t=THEMES[k];return `
+    <div class="tcard" data-card="${k}">
+      <div class="glyph" style="background:linear-gradient(150deg,${t.accent},${t.accent2})">${t.mark}</div>
+      <h4>${t.name}</h4>
+      <div class="vibe">${t.vibe}</div>
+      <div class="termline"><b>${t.terms.principal}</b> · ${t.terms.professor} · ${t.terms.semester} · ${t.terms.exam}</div>
+      <div class="pal"><span style="background:${t.bg}"></span><span style="background:${t.accent}"></span><span style="background:${t.accent2}"></span><span style="background:#e9ebf2"></span></div>
+      <button class="try" data-set="${k}">Apply ${t.name}</button>
+    </div>`;}).join('');
+
+  const root=document.documentElement;
+  function applyTheme(key){
+    const t=THEMES[key]; if(!t) return;
+    root.style.setProperty('--accent',t.accent);
+    root.style.setProperty('--accent-2',t.accent2);
+    root.style.setProperty('--accent-soft',hexRgba(t.accent,.14));
+    root.style.setProperty('--glow',hexRgba(t.accent,.16));
+    root.style.setProperty('--tint',hexRgba(t.accent,.08));
+    root.style.setProperty('--bg',t.bg);
+    document.body.dataset.theme=key;
+    document.querySelectorAll('[data-term]').forEach(el=>{const k2=el.getAttribute('data-term'); if(t.terms[k2]) el.textContent=t.terms[k2];});
+    document.querySelector('[data-mark]').textContent=t.mark;
+    document.querySelectorAll('#switch button').forEach(b=>b.classList.toggle('active',b.dataset.set===key));
+    document.querySelectorAll('.tcard[data-card]').forEach(c=>c.classList.toggle('activecard',c.dataset.card===key));
+    const body=document.getElementById('glossbody');
+    body.innerHTML=GLOSS.map(([label,k2])=>`<tr><td>${label}</td><td class="colA">${THEMES.standard.terms[k2]}</td><td class="liveCol">${t.terms[k2]}</td></tr>`).join('');
+    const lh=document.getElementById('liveHead'); if(lh) lh.textContent=t.name;
+    try{localStorage.setItem('aula_theme',key);}catch(e){}
+  }
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-set]'); if(b) applyTheme(b.dataset.set);});
+  let start='ninja';
+  try{const s=localStorage.getItem('aula_theme'); if(s&&THEMES[s]) start=s;}catch(e){}
+  applyTheme(start);
+</script>
+</body>
+</html>
