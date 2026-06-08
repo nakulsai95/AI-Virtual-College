@@ -352,7 +352,26 @@ function Bubble({ m, terms }){
 /* ---------- Channel (Slack-style) ---------- */
 function ChannelScreen({ terms, data }){
   const [active,setActive] = useStateL(data.CHANNELS[0].id);
+  const [live,setLive] = useStateL(null);   // live faculty-room messages
+  const [busy,setBusy] = useStateL(false);
+  const bodyRef = useRefL(null);
   const ch = data.CHANNELS.find(c=>c.id===active);
+  const isRoom = ch.kind==='room';
+
+  useEffectL(()=>{ if(window.AULA_API) window.AULA_API.channel().then(r=>setLive(r.messages||[])).catch(()=>{}); },[]);
+  useEffectL(()=>{ if(bodyRef.current) bodyRef.current.scrollTo(0, bodyRef.current.scrollHeight); },[live,active]);
+
+  function advance(){
+    setBusy(true);
+    window.AULA_API.advanceChannel()
+      .then(r=> setLive(l=>[...(l||[]), ...r.messages]))
+      .catch(()=>{})
+      .finally(()=>setBusy(false));
+  }
+
+  // Use live faculty-room messages when the backend has them; else the demo thread.
+  const roomMsgs = (isRoom && live && live.length) ? live : ch.messages;
+
   return (
     <div className="channel">
       <div className="ch-list">
@@ -369,14 +388,15 @@ function ChannelScreen({ terms, data }){
       </div>
       <div className="ch-main">
         <div className="ch-head">
-          {ch.kind==='room'?<span className="ch-hash big">#</span>:<Avatar name={ch.name} hue={ch.hue} size={30}/>}
+          {isRoom?<span className="ch-hash big">#</span>:<Avatar name={ch.name} hue={ch.hue} size={30}/>}
           <div><b style={{fontFamily:'var(--font-d)',fontSize:15}}>{ch.name}</b><div className="faint mono" style={{fontSize:11}}>{ch.sub}</div></div>
           <div style={{flex:1}}/>
+          {isRoom && window.AULA_API && <button className="btn ghost" style={{marginRight:10,padding:'6px 12px',fontSize:12.5}} onClick={advance} disabled={busy}>{busy?'faculty talking…':'Ask the faculty to review'}</button>}
           <span className="badge accent mono">⌁ slack-mcp</span>
         </div>
-        <div className="ch-body">
-          {ch.kind==='room' && <div className="b-system" style={{marginBottom:10}}>Your faculty coordinate here. You can read along.</div>}
-          {ch.messages.map((m,i)=>(
+        <div className="ch-body" ref={bodyRef}>
+          {isRoom && <div className="b-system" style={{marginBottom:10}}>Your faculty coordinate here. You can read along.</div>}
+          {roomMsgs.map((m,i)=>(
             <div key={i} className={"ch-msg"+(m.role==='me'?' me':'')}>
               {m.role!=='me' && <Avatar name={m.who} hue={m.hue||'#6e8efb'} size={30} />}
               <div className="ch-msg-body">
@@ -385,9 +405,10 @@ function ChannelScreen({ terms, data }){
               </div>
             </div>
           ))}
+          {isRoom && (!roomMsgs || !roomMsgs.length) && <div className="faint" style={{fontSize:13}}>No discussion yet — hit “Ask the faculty to review”.</div>}
         </div>
         <div className="chat-input">
-          <input placeholder={ch.kind==='room'?'Reply in '+ch.name+'…':'Message '+ch.name+'…'} />
+          <input placeholder={isRoom?'Reply in '+ch.name+'…':'Message '+ch.name+'…'} />
           <button className="btn primary">Send</button>
         </div>
       </div>

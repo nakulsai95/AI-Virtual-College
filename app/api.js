@@ -57,6 +57,11 @@
     examStart: (subject, bar) => req('POST', '/api/exam/start', { subject, bar: bar || 65 }),
     examSubmit: (payload) => req('POST', '/api/exam/submit', payload),
     examResults: () => req('GET', '/api/exam/results'),
+    // Faculty room (live agent conversation) + notifications
+    channel: () => req('GET', '/api/channel'),
+    advanceChannel: () => req('POST', '/api/channel/advance'),
+    notifications: () => req('GET', '/api/notifications'),
+    markSeen: () => req('POST', '/api/notifications/seen'),
     // Auth
     token: getToken,
     isAuthed: () => !!getToken(),

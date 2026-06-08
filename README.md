@@ -107,9 +107,9 @@ backend/
   app/llm/              Provider-agnostic LLM layer (Claude/OpenAI/Groq/Ollama + demo mock)
   app/state.py          Per-user faculty grades, methodology versions, reward feed
   app/progress.py       The student model (per-concept mastery, XP, streak)
-  app/agents/           Principal (curriculum), Professor (lessons), Examiner (exams + grading)
-  app/sandbox/          Real execution: Python subprocess + SQLite
-  app/routers/          auth · connectors · onboard · faculty · sandbox · progress · exam
+  app/agents/           Principal, Professor, Examiner, Faculty Room (agent chat)
+  app/sandbox/          Real execution: hardened Python subprocess + SQLite
+  app/routers/          auth · connectors · onboard · faculty · sandbox · progress · exam · channel
   run.sh, requirements.txt, .env.example
 docs/
   architecture/         System design: component & subsystem specs, architecture map
@@ -136,11 +136,21 @@ The product is taking shape. Done so far, and what's next:
 - [x] **Full exams** — the Examiner *sets* a multi-question exam from your
       subject, grades each answer, and the result feeds the reward loop +
       your progress; results are saved per user
-- [ ] Hardened sandbox isolation (container/network) for untrusted code
-- [ ] Real-time faculty room (agents conversing) + notifications
+- [x] **Real-time faculty room + notifications** — the agents discuss your
+      progress in character (grounded in live grades/events), and a
+      notifications bell surfaces the reward feed with unread counts
+- [x] **Hardened sandbox** — autodetects an OS sandbox (bubblewrap / firejail /
+      nsjail) for real fs+net isolation when present; always layers a network
+      block, rlimits (CPU/mem/file), and a wall-clock timeout (see caveat below)
+- [ ] Streaming agent responses (token-by-token) in the UI
+- [ ] Deploy recipe (Docker compose: backend behind a real sandbox host)
 
-> ⚠️ The Python sandbox runs code in a subprocess with CPU/memory/time limits —
-> fine for local single-user dev, **not** a hardened multi-tenant boundary. Don't
-> expose it to the public internet without real container/network isolation.
+> ⚠️ **Sandbox scope.** The Python sandbox wraps execution in an OS sandbox
+> (bubblewrap / firejail / nsjail) when one is installed, giving real filesystem
+> and network namespaces. It always layers an in-interpreter network block,
+> resource limits (CPU/memory/file size), and a wall-clock timeout. **Without an
+> OS sandbox installed it's a soft boundary** — fine for local single-user dev,
+> not hardened multi-tenant isolation. Install bubblewrap on the host, or run the
+> backend itself inside a locked-down container, before exposing it publicly.
 
 See `docs/architecture/Architecture Index.html` for the full design.

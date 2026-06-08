@@ -7,7 +7,7 @@ from .db import connect
 
 _TABLES = {"connector": "connectors", "enrollment": "enrollments",
            "faculty": "faculty_state", "student": "student_model",
-           "exams": "exam_results"}
+           "exams": "exam_results", "channel": "channel_log", "notif": "notif_state"}
 
 
 def _get(kind: str, user_id: int) -> dict | None:
@@ -54,3 +54,9 @@ def set_student(uid: int, v):  _set("student", uid, v)
 
 def get_exams(uid: int):       return _get("exams", uid) or {"results": []}
 def set_exams(uid: int, v):    _set("exams", uid, v)
+
+def get_channel(uid: int):     return _get("channel", uid) or {"messages": []}
+def set_channel(uid: int, v):  _set("channel", uid, v)
+
+def get_notif(uid: int):       return _get("notif", uid) or {}
+def set_notif(uid: int, v):    _set("notif", uid, v)

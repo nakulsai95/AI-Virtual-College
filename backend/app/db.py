@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS enrollments   (user_id INTEGER PRIMARY KEY, json TEXT
 CREATE TABLE IF NOT EXISTS faculty_state (user_id INTEGER PRIMARY KEY, json TEXT);
 CREATE TABLE IF NOT EXISTS student_model (user_id INTEGER PRIMARY KEY, json TEXT);
 CREATE TABLE IF NOT EXISTS exam_results  (user_id INTEGER PRIMARY KEY, json TEXT);
+CREATE TABLE IF NOT EXISTS channel_log   (user_id INTEGER PRIMARY KEY, json TEXT);
+CREATE TABLE IF NOT EXISTS notif_state    (user_id INTEGER PRIMARY KEY, json TEXT);
 """
 
 # Reserved id for the anonymous / "continue as guest" user.

@@ -120,6 +120,40 @@ function AuthModal({ onClose, onAuthed }){
   );
 }
 
+function NotificationsBell({ notif, reload, onOpen }){
+  const { useState } = React;
+  const [open,setOpen] = useState(false);
+  if(!window.AULA_API) return null;
+  function toggle(){
+    const next = !open; setOpen(next);
+    if(next){ reload(); onOpen(); }
+  }
+  return (
+    <div style={{position:'relative'}}>
+      <button className="tb-btn" onClick={toggle}>
+        <span style={{fontSize:14}}>🔔</span>
+        {notif.unread>0 && <span className="badge-n" style={{marginLeft:2}}>{notif.unread}</span>}
+      </button>
+      {open && (
+        <React.Fragment>
+          <div style={{position:'fixed',inset:0,zIndex:70}} onClick={()=>setOpen(false)}/>
+          <div className="theme-pop" style={{minWidth:300,maxHeight:380,overflowY:'auto'}}>
+            <h4>Notifications</h4>
+            {(!notif.events||!notif.events.length) && <div className="tp-sub">Nothing yet.</div>}
+            {(notif.events||[]).map((e,i)=>(
+              <div key={i} className="feed-row" style={{padding:'8px 0'}}>
+                <span className="dot" style={{background:e.kind==='pos'?'var(--mint)':e.kind==='neg'?'var(--coral)':e.kind==='update'?'var(--accent)':'var(--faint)'}}/>
+                <span style={{flex:1,fontSize:12.5}}>{e.text}</span>
+                <span className="faint mono" style={{fontSize:10}}>{e.t}</span>
+              </div>
+            ))}
+          </div>
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
 function App(){
   const [themeKey, setThemeKey] = useStateA(localStorage.getItem('aula_app_theme') || 'ninja');
   const [enrolled, setEnrolled] = useStateA(localStorage.getItem('aula_enrolled')==='1');
@@ -127,8 +161,10 @@ function App(){
   const [lessonOpen, setLessonOpen] = useStateA(null);
   const [account, setAccount] = useStateA(null);
   const [authOpen, setAuthOpen] = useStateA(false);
+  const [notif, setNotif] = useStateA({events:[], unread:0});
   const [, setTick] = useStateA(0);
   const bump = ()=>setTick(t=>t+1);
+  function loadNotif(){ if(window.AULA_API) window.AULA_API.notifications().then(setNotif).catch(()=>{}); }
 
   useEffectA(()=>{ window.applyThemeVars(themeKey); localStorage.setItem('aula_app_theme',themeKey); },[themeKey]);
 
@@ -148,6 +184,7 @@ function App(){
     if(!window.AULA_API) return;
     window.AULA_API.me().then(setAccount).catch(()=>{});
     loadSession();
+    loadNotif();
   },[]);
 
   const terms = window.AULA_THEMES[themeKey].terms;
@@ -161,10 +198,15 @@ function App(){
     if(window.AULA_API) window.AULA_API.logout().finally(done); else done();
   }
   const accountMenu = <AccountMenu account={account} onSignIn={()=>setAuthOpen(true)} onSignOut={signOut} />;
+  const notifBell = <NotificationsBell notif={notif} reload={loadNotif}
+    onOpen={()=>{ if(window.AULA_API) window.AULA_API.markSeen().then(()=>loadNotif()).catch(()=>{}); }} />;
 
   function enrol(){
     setEnrolled(true); localStorage.setItem('aula_enrolled','1'); setActive('home');
-    if(window.AULA_API) window.AULA_API.progress().then(p=>{ if(p&&p.student){ window.applyStudent(p.student); bump(); } }).catch(()=>{});
+    if(window.AULA_API){
+      window.AULA_API.progress().then(p=>{ if(p&&p.student){ window.applyStudent(p.student); bump(); } }).catch(()=>{});
+      loadNotif();
+    }
   }
   function nav(key, payload){ if(key==='lesson'){ setLessonOpen(payload||true); } setActive(key); }
 
@@ -194,7 +236,7 @@ function App(){
             <div key={g.group}>
               <div className="sb-group">{g.group}</div>
               {g.items.map(it=>{
-                const unread = it.key==='channel' ? 2 : 0;
+                const unread = it.key==='channel' ? (window.AULA_API ? (notif.unread||0) : 2) : 0;
                 return (
                   <button key={it.key} className={"nav-item"+(active===it.key?' active':'')} onClick={()=>nav(it.key)}>
                     <span className="ico"><Icon name={it.icon} /></span>
@@ -216,6 +258,7 @@ function App(){
         <div className="topbar">
           <div className="tb-title"><span className="crumb">{current.group}</span>{navLabel(current,terms)}</div>
           <div className="tb-spacer" />
+          {notifBell}
           {accountMenu}
           {themeSwitch}
         </div>
