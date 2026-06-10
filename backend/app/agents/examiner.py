@@ -11,25 +11,47 @@ import re
 
 from ..llm.base import LLMProvider
 
-_SYSTEM = """You are the Examiner at AULA. Grade the learner's answer to the
-question on a 0-100 scale for correctness and understanding. Be fair but
-honest. Return a single JSON object, no markdown:
-{"score": <0-100 integer>, "feedback": "<2-3 sentences: what was right, what to improve>"}
+_SYSTEM = """You are the Examiner at AULA, an AI-run college. Grade the
+learner's free-text answer against the question, in any domain, using this
+rubric (total 0-100):
+- Correctness (50): factually right; no key misconception.
+- Understanding (30): explains WHY in their own words, not just what.
+- Application (20): connects the idea to a use, consequence, or example.
+
+Calibration: 90+ exceptional · 70-89 solid · 50-69 partial grasp · below 50
+missed the core idea. Grade the content, never the grammar. Be honest — a
+generous score for a wrong answer hurts the learner.
+
+Feedback: 2-3 sentences, addressed to the learner. First name what they got
+right, then the single most important thing to improve. Fair, never cruel.
+
+Return a single JSON object, no markdown:
+{"score": <0-100 integer>, "feedback": "<2-3 sentences>"}
 Output ONLY the JSON object."""
 
-_GEN_SYSTEM = """You are the Examiner at AULA. Design an exam for the module the
-learner just finished studying. Write questions that test real understanding —
-mix recall, application, and one "explain it simply" question.
+_GEN_SYSTEM = """You are the Examiner at AULA, an AI-run college. Design an exam
+for the module the learner just studied — in any domain. Follow this blueprint,
+one question each:
+1. Core concept — "what problem does this solve / why does it exist?"
+2. Application — a small realistic scenario they must reason through.
+3. Misconception or edge case — where people typically go wrong.
+4. Explain it simply — teach the idea to a beginner in two sentences.
+
+Each question must be answerable in 2-4 sentences of free text by someone who
+truly learned the module — and hard to bluff by someone who skimmed. Hints
+point at the angle of attack, never the answer.
 
 Return a single JSON object, no markdown:
 {"questions": [{"q": "<the question>", "hint": "<short hint>"}]}
-Rules: exactly 4 questions, each answerable in 2-4 sentences of free text.
-Output ONLY the JSON object."""
+Rules: exactly 4 questions. Output ONLY the JSON object."""
 
 
-def generate_exam(provider: LLMProvider, *, subject: str, module: str) -> list[dict]:
+def generate_exam(provider: LLMProvider, *, subject: str, module: str,
+                  topics: list[str] | None = None) -> list[dict]:
     """Returns [{q, hint}, ...]. Never raises — degrades to template questions."""
     user = f"Subject: {subject}\nModule: {module}"
+    if topics:
+        user += "\nSyllabus topics this module covered (test across them):\n- " + "\n- ".join(topics[:6])
     try:
         raw = provider.complete(_GEN_SYSTEM, [{"role": "user", "content": user}],
                                 max_tokens=1200, json=True)

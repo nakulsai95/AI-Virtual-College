@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from .. import db, store
+from .. import builder, db, store
 from ..agents import counselor, examiner, guide, professor, provost
 from ..llm import build_provider, metered
 from ..schemas import (
@@ -77,6 +77,41 @@ def lesson_detail(lesson_id: int):
     return {"lesson": lesson}
 
 
+@router.post("/catalog/{catalog_id}/generate")
+def generate_class(catalog_id: int):
+    """JIT: write this catalog class right now (bulk tier), return the lesson."""
+    entry = db.get_catalog_entry(catalog_id)
+    if not entry:
+        raise HTTPException(404, "No such class in the catalog.")
+    if entry["status"] == "ready" and entry["lesson_id"]:
+        return {"lesson": db.get_lesson(entry["lesson_id"])}
+
+    prof = db.resolve_professor(subject=entry["subject_title"])
+    prof_name = prof["name"] if prof else "Professor"
+    db.set_catalog_status(catalog_id, "writing")
+    try:
+        lesson_id = builder._author_class(  # noqa: SLF001 - same package, same flow
+            entry, prof, prof_name, builder._subject_sandbox(entry["subject_id"]))
+    except Exception as e:  # noqa: BLE001
+        db.set_catalog_status(catalog_id, "planned")
+        provider = build_provider(store.get_connector())
+        if provider.id != "mock":
+            raise HTTPException(
+                502, f"Your connected model failed while writing this class: {e}") from e
+        raise HTTPException(500, f"Could not write the class: {e}") from e
+    return {"lesson": db.get_lesson(lesson_id)}
+
+
+@router.post("/build/continue")
+def build_continue(background: BackgroundTasks):
+    """Resume the college build / content factory (idempotent)."""
+    if not db.enrolled():
+        raise HTTPException(400, "No college yet — onboard first.")
+    background.add_task(builder.build_college)
+    ready, total = db.catalog_counts()
+    return {"ok": True, "ready": ready, "total": total}
+
+
 # --- the Personal Guide ------------------------------------------------------
 
 @router.post("/guide")
@@ -100,10 +135,13 @@ def ask_guide(body: GuideIn):
 
     p_provider = metered(build_provider(store.get_connector()),
                          (prof or {}).get("id", "professor"), "author lesson")
+    # The professor teaches from the materials they gathered for this subject.
+    context, refs = db.materials_context(subject["id"], route["topic"])
     try:
         lesson = professor.design_lesson(
             p_provider, subject=subject["title"], topic=route["topic"],
-            professor=prof_name, methodology=methodology, sandbox=sandbox)
+            professor=prof_name, methodology=methodology, sandbox=sandbox,
+            materials=context)
     except Exception as e:  # noqa: BLE001
         if p_provider.id != "mock":
             # A real model is configured — fail loudly, never silently demo.
@@ -114,6 +152,7 @@ def ask_guide(body: GuideIn):
         lesson = professor.design_lesson(
             MockProvider(), subject=subject["title"], topic=route["topic"],
             professor=prof_name, methodology=methodology, sandbox=sandbox)
+    lesson["refs"] = refs
     lesson["id"] = db.add_lesson(lesson)
 
     # The conversation also lands in the Guide's DM channel.
@@ -171,14 +210,22 @@ def _persona_reply(fac: dict, text: str, channel_id: str) -> str:
     if provider.id == "mock":
         return _template_reply(fac)
     role_line = {
-        "professor": f"You teach {fac['subject']}.",
-        "guide": "You are the learner's personal guide — route doubts, encourage.",
-        "principal": "You run the college and report to the learner.",
+        "professor": (f"You teach {fac['subject']} and you are personally graded on "
+                      "whether this learner succeeds. Answer their question concretely; "
+                      "if it deserves a full lesson, say you'll write one if they ask "
+                      "the Guide."),
+        "guide": "You are the learner's personal guide — route doubts to the right teacher, encourage, never lecture.",
+        "principal": "You run the college; you report progress plainly and own problems without excuses.",
+        "examiner": "You set and grade exams blind; you can explain how grading works, never leak questions.",
+        "counselor": "You look after pacing and wellbeing; you never judge.",
+        "registrar": "You keep attendance, streaks and records.",
     }.get(fac["role"], f"You are the college's {fac['role']}.")
     system = (
-        f"You are {fac['name']}, the {fac['role']} at AULA, an AI-run college. "
-        f"{role_line} You are chatting with your learner. "
-        "Reply in 2-4 warm, concrete sentences. No markdown, no lists.")
+        f"You are {fac['name']}, the {fac['role']} at AULA, an AI-run college, "
+        f"chatting with your learner in a DM. {role_line} "
+        "Stay in character and remember the relationship: their success is your job. "
+        "Reply in 2-4 warm, concrete sentences — specifics over platitudes. "
+        "No markdown, no lists, no sign-offs.")
     history = _recent_messages(channel_id, limit=8)
     try:
         return provider.complete(system, history + [{"role": "user", "content": text}],
@@ -222,7 +269,8 @@ def generate_exam(body: ExamGenerateIn):
     provider = metered(build_provider(store.get_connector()), "examiner", "design exam")
 
     def factory(subject: str, module: str) -> list[dict]:
-        return examiner.generate_exam(provider, subject=subject, module=module)
+        return examiner.generate_exam(provider, subject=subject, module=module,
+                                      topics=db.module_topics(body.module_id))
 
     exam = db.get_or_create_exam(body.module_id, factory)
     if not exam:
@@ -305,8 +353,14 @@ def usage():
 
 
 @router.put("/budget")
-def set_budget(body: BudgetIn):
+def set_budget(body: BudgetIn, background: BackgroundTasks):
+    old_cap = db.budget_cap()
     db.set_budget_cap(body.cap)
+    # More credits → the content factory picks up where it paused.
+    if body.cap > old_cap and db.enrolled():
+        ready, total = db.catalog_counts()
+        if total and ready < total:
+            background.add_task(builder.build_college)
     return db.usage_summary()
 
 

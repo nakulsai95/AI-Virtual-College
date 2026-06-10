@@ -13,21 +13,28 @@ function Onboarding({ terms, mark, onEnroll, themeSwitch }){
   const [level, setLevel] = useStateO('intermediate');
 
   // Kick off the real Principal (backend) when the learner hits "Build".
-  // The hiring animation plays while the curriculum is generated. If the
-  // backend is OFF entirely, the demo plan stays; but if a real model is
-  // connected and fails, the error is surfaced — never a silent demo.
+  // The Hiring screen shows the TRUE order of work: the Principal scrapes
+  // university curricula, studies them, designs the plan — and only THEN do
+  // hiring cards appear, with the faculty the model actually chose.
+  // window.AULA_ONBOARD signals the Hiring screen that the real plan landed.
   function build(){
     const g = goal.trim() || 'Become job-ready in backend Python';
+    window.AULA_ONBOARD = null;
     setPhase('hiring');
     if(window.AULA_API){
       window.AULA_API.onboard(g, level)
-        .then(out=>{ window.AULA_ONBOARD = out; window.applyCurriculum && window.applyCurriculum(out.curriculum); })
+        .then(out=>{
+          window.applyCurriculum && window.applyCurriculum(out.curriculum);
+          window.AULA_ONBOARD = out;
+        })
         .catch(err=>{
-          if(err instanceof TypeError){ return; /* backend offline — demo plan stays */ }
+          if(err instanceof TypeError){ window.AULA_ONBOARD = { offline:true }; return; }
           alert('The Principal hit a problem:\n\n' + (err.message || err) +
                 '\n\nCheck your key/credits in Connections, then try again.');
           setPhase('intake');
         });
+    } else {
+      window.AULA_ONBOARD = { offline:true };
     }
   }
 
@@ -77,40 +84,85 @@ function Intake({ goal, setGoal, level, setLevel, terms, onBuild }){
   );
 }
 
+// What the Principal is actually doing before any hiring decision is made.
+const PREP_STAGES = [
+  'Reading your goal & constraints…',
+  'Scraping university syllabi — Stanford, MIT OCW, course pages…',
+  'Studying the material: what real programs cover, and in what order…',
+  'Designing your semester — subjects, modules, sandboxes per topic…',
+  'Validating the plan against the syllabi — filling gaps…',
+  'Making hiring calls — one professor per subject…',
+];
+
 function Hiring({ terms, goal, onDone }){
   const D = window.AULA_DATA;
-  const seq = D.HIRING;
-  const [n, setN] = useStateO(0);     // agents revealed
-  const [lines, setLines] = useStateO([]);
-  const done = n >= seq.length;
+  const [ready, setReady] = useStateO(!!window.AULA_ONBOARD);  // real plan landed
+  const [prep, setPrep] = useStateO(1);   // prep stages revealed while the model works
+  const [n, setN] = useStateO(0);         // faculty revealed (only after ready)
+  const seq = D.HIRING;                   // real faculty once applyCurriculum ran
+  const done = ready && n >= seq.length;
 
+  // Wait for the Principal's real curriculum — no hiring before the decision.
+  // Also ask the backend which stage it's truly in (research vs design).
   useEffectO(()=>{
-    if(done) return;
-    const a = seq[n];
-    const t = setTimeout(()=>{
-      setLines(ls=>[...ls, n===0
-        ? { tk:'init', text:<span><b>{a.name}</b> · {a.line}</span>, ok:false }
-        : { tk:'hire', text:<span>Hired <b>{a.name}</b> · {roleLabel(a.roleKey,terms)} — {a.line}</span>, ok:true }]);
-      setN(n+1);
-    }, n===0?500:680);
+    if(ready) return;
+    const t = setInterval(()=>{ if(window.AULA_ONBOARD) setReady(true); }, 350);
+    const s = setInterval(()=>{
+      if(window.AULA_ONBOARD || !window.AULA_API) return;
+      window.AULA_API.onboardStatus().then(r=>{
+        if(r.stage==='research') setPrep(p=>Math.max(p,2));
+        if(r.stage==='design') setPrep(p=>Math.max(p,4));
+        if(r.stage==='validate') setPrep(p=>Math.max(p,5));
+      }).catch(()=>{});
+    }, 1200);
+    return ()=>{ clearInterval(t); clearInterval(s); };
+  },[ready]);
+
+  // Research/design console lines advance while we wait (and stop when real).
+  useEffectO(()=>{
+    if(ready || prep >= PREP_STAGES.length) return;
+    const t = setTimeout(()=>setPrep(p=>p+1), 2400);
     return ()=>clearTimeout(t);
-  },[n,done]);
+  },[prep, ready]);
+
+  // Hiring reveals — strictly after the model made its hiring calls.
+  useEffectO(()=>{
+    if(!ready || done) return;
+    const t = setTimeout(()=>setN(x=>x+1), n===0?600:680);
+    return ()=>clearTimeout(t);
+  },[n, ready, done]);
+
+  const progTotal = PREP_STAGES.length + (seq ? seq.length : 8);
+  const progVal = ready ? PREP_STAGES.length + n : prep;
 
   return (
     <div className="hiring">
       <div className="hiring-head">
         <div className="eyebrow" style={{justifyContent:'center',marginBottom:12}}>Building · watch it happen</div>
-        <h2>Hiring your faculty</h2>
+        <h2>{ready ? 'Hiring your faculty' : 'Designing your '+terms.college.replace(/^The /,'')}</h2>
         <p>For “{goal.trim()||'Become job-ready in backend Python'}”</p>
       </div>
       <div className="hiring-grid">
         <div className="console">
-          {lines.map((l,i)=>
-            <div key={i} className={"cl"+(l.ok?' ok':'')}><span className="tk">{l.ok?'✓ hire':'›'}</span>{l.text}</div>)}
-          {!done && <div className="cl"><span className="tk">…</span>working</div>}
+          {PREP_STAGES.slice(0, ready ? PREP_STAGES.length : prep).map((s,i)=>
+            <div key={'p'+i} className={"cl"+((ready||i<prep-1)?' ok':'')}>
+              <span className="tk">{(ready||i<prep-1)?'✓':'›'}</span>
+              <span>{i===0 ? <span><b>{terms.principal}</b> · {s}</span> : s}</span>
+            </div>)}
+          {ready && <div className="cl ok"><span className="tk">✓ plan</span><span>Curriculum designed — making the hires.</span></div>}
+          {ready && seq.slice(0,n).map((a,i)=>
+            <div key={'h'+i} className="cl ok"><span className="tk">✓ hire</span>
+              <span>Hired <b>{a.name}</b> · {roleLabel(a.roleKey,terms)} — {a.line}</span></div>)}
+          {!done && <div className="cl"><span className="tk">…</span>{ready?'hiring':'the '+terms.principal+' is working — scraping & deciding'}</div>}
         </div>
         <div className="roster">
-          {seq.slice(0,n).map((a,i)=>{
+          {!ready && (
+            <div className="hire-card" style={{opacity:.65}}>
+              <Avatar name="?" hue="var(--accent)" size={38} sq glyph="…" />
+              <div className="hc-meta"><b>No hires yet</b><span>faculty appears once the {terms.principal.toLowerCase()} decides</span></div>
+            </div>
+          )}
+          {ready && seq.slice(0,n).map((a,i)=>{
             const fac = D.FACULTY.find(f=>f.id===a.id) || {};
             return (
               <div key={a.id} className="hire-card" style={{animationDelay:'0s'}}>
@@ -123,12 +175,14 @@ function Hiring({ terms, goal, onDone }){
         </div>
       </div>
       <div className="hiring-prog">
-        <Bar value={n} max={seq.length} />
+        <Bar value={progVal} max={progTotal} />
       </div>
       <div className="hiring-cta">
         {done
           ? <button className="btn primary" onClick={onDone}>Review the plan →</button>
-          : <span className="mono faint" style={{fontSize:13}}>{n} / {seq.length} hired…</span>}
+          : <span className="mono faint" style={{fontSize:13}}>
+              {ready ? n+' / '+seq.length+' hired…' : 'researching & designing — hires come after the decision'}
+            </span>}
       </div>
     </div>
   );

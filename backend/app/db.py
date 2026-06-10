@@ -11,6 +11,7 @@ SQLite and safe across FastAPI's threadpool.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -116,6 +117,17 @@ CREATE TABLE IF NOT EXISTS usage(
   action TEXT DEFAULT '', input_tokens INTEGER DEFAULT 0,
   output_tokens INTEGER DEFAULT 0, cost REAL DEFAULT 0, created_at REAL
 );
+CREATE TABLE IF NOT EXISTS materials(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, subject_id TEXT DEFAULT '',
+  subject TEXT DEFAULT '', kind TEXT DEFAULT 'link', title TEXT,
+  authors TEXT DEFAULT '', url TEXT DEFAULT '', summary TEXT DEFAULT '',
+  tools TEXT DEFAULT '[]', added_by TEXT DEFAULT '', created_at REAL
+);
+CREATE TABLE IF NOT EXISTS catalog(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, subject_id TEXT, module_id TEXT,
+  topic TEXT, position INTEGER DEFAULT 0, status TEXT DEFAULT 'planned',
+  lesson_id INTEGER, created_at REAL
+);
 CREATE TABLE IF NOT EXISTS config(key TEXT PRIMARY KEY, value TEXT);
 """
 
@@ -135,14 +147,31 @@ def init_db() -> None:
     with connect() as c:
         c.execute("PRAGMA journal_mode=WAL")
         c.executescript(_SCHEMA)
+        # Lightweight migrations for columns added after first release.
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(lessons)")]
+        if "refs" not in cols:
+            c.execute("ALTER TABLE lessons ADD COLUMN refs TEXT DEFAULT '[]'")
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(modules)")]
+        if "topics" not in cols:
+            c.execute("ALTER TABLE modules ADD COLUMN topics TEXT DEFAULT '[]'")
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(materials)")]
+        if "content" not in cols:
+            c.execute("ALTER TABLE materials ADD COLUMN content TEXT DEFAULT ''")
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(lessons)")]
+        if "objectives" not in cols:
+            c.execute("ALTER TABLE lessons ADD COLUMN objectives TEXT DEFAULT '[]'")
+        if "takeaways" not in cols:
+            c.execute("ALTER TABLE lessons ADD COLUMN takeaways TEXT DEFAULT '[]'")
 
 
 def reset_college() -> None:
     """Wipe the college (re-onboarding) but keep budget config + usage history."""
     with connect() as c:
         for t in ("college", "student", "faculty", "subjects", "modules", "mastery",
-                  "lessons", "board", "exams", "channels", "messages", "feed"):
+                  "lessons", "board", "exams", "channels", "messages", "feed",
+                  "materials", "catalog"):
             c.execute(f"DELETE FROM {t}")
+        c.execute("DELETE FROM config WHERE key='build_status'")
 
 
 # --- config / budget ------------------------------------------------------
@@ -209,6 +238,79 @@ def log_feed(who: str, text: str, kind: str = "neutral") -> None:
     with connect() as c:
         c.execute("INSERT INTO feed(who,text,kind,created_at) VALUES(?,?,?,?)",
                   (who, text, kind, time.time()))
+
+
+# --- college build (the semester-prep pipeline) ------------------------------
+
+def set_build_status(stage: str, message: str, done: int, total: int,
+                     finished: bool = False) -> None:
+    set_config("build_status", json.dumps({
+        "stage": stage, "message": message, "done": done, "total": total,
+        "finished": finished,
+    }))
+
+
+def build_status() -> dict | None:
+    raw = get_config("build_status", "")
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+
+# --- materials (what the professors scrape into the library) -----------------
+
+def add_material(subject_id: str, subject: str, kind: str, title: str,
+                 authors: str = "", url: str = "", summary: str = "",
+                 tools: list[str] | None = None, added_by: str = "",
+                 content: str = "") -> None:
+    with connect() as c:
+        exists = c.execute("SELECT 1 FROM materials WHERE url=? AND url!=''",
+                           (url,)).fetchone()
+        if exists:
+            return
+        c.execute(
+            "INSERT INTO materials(subject_id,subject,kind,title,authors,url,summary,tools,added_by,created_at,content) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (subject_id, subject, kind, title, authors, url, summary,
+             json.dumps(tools or []), added_by, time.time(), content))
+
+
+def materials_context(subject_id: str, topic: str = "",
+                      limit: int = 8) -> tuple[str, list[dict]]:
+    """The teaching corpus: the subject's most relevant materials for a topic.
+
+    Returns (prompt_text, refs). What the professor teaches is extracted from
+    this — titles, authors, and the summaries scraped from the sources.
+    """
+    with connect() as c:
+        rows = [dict(r) for r in c.execute(
+            "SELECT * FROM materials WHERE subject_id=?", (subject_id,)).fetchall()]
+    if not rows:
+        return "", []
+    words = set(re.findall(r"[a-z]{3,}", (topic or "").lower()))
+
+    def relevance(m: dict) -> int:
+        text = (m["title"] + " " + (m.get("content") or m["summary"] or "")[:1500]).lower()
+        depth = 2 if m.get("content") else 1 if m["summary"] else 0
+        return sum(2 for w in words if w in text) + depth
+
+    rows.sort(key=relevance, reverse=True)
+    top = rows[:limit]
+    lines = []
+    for m in top:
+        line = f"- [{m['kind']}] {m['title']}"
+        if m["authors"]:
+            line += f" — {m['authors']}"
+        # Full scraped text (textbooks, articles) beats a one-line summary.
+        body = (m.get("content") or "")[:900] or (m["summary"] or "")[:400]
+        if body:
+            line += f". {body}"
+        lines.append(line)
+    refs = [{"title": m["title"], "url": m["url"], "kind": m["kind"]} for m in top]
+    return "\n".join(lines), refs
 
 
 # --- onboarding seed ------------------------------------------------------
@@ -431,7 +533,8 @@ def bump_mastery(subject_id: str, module_id: str = "", amount: float = 0.1,
 
 # --- lessons / board --------------------------------------------------------
 
-def add_lesson(lesson: dict, subject_id: str = "") -> int:
+def add_lesson(lesson: dict, subject_id: str = "", board_card: bool = True,
+               feed: bool = True) -> int:
     now = time.time()
     tag = (lesson.get("title") or "lesson").split()[0].strip(",.:").lower()
     with connect() as c:
@@ -441,22 +544,26 @@ def add_lesson(lesson: dict, subject_id: str = "") -> int:
             subject_id = row["id"] if row else ""
         cur = c.execute(
             "INSERT INTO lessons(subject_id,subject,title,author,read_time,intro,sections,probe,"
-            "sandbox,code_language,code_starter,tag,state,created_at) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "sandbox,code_language,code_starter,tag,state,created_at,refs,objectives,takeaways) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (subject_id, lesson.get("subject", ""), lesson.get("title", "Lesson"),
              lesson.get("author", "Professor"), lesson.get("read", "6 min"),
              lesson.get("intro", ""), json.dumps(lesson.get("sections", [])),
              json.dumps(lesson.get("probe", {})), lesson.get("sandbox", "python"),
              lesson.get("code_language", "python"), lesson.get("code_starter", ""),
-             tag, "new", now))
+             tag, "new", now, json.dumps(lesson.get("refs", [])),
+             json.dumps(lesson.get("objectives", [])),
+             json.dumps(lesson.get("takeaways", []))))
         lesson_id = cur.lastrowid
-        c.execute("INSERT INTO board(col,type,title,subject,meta,tool,lesson_id,created_at) "
-                  "VALUES('lessons','lesson',?,?,?,0,?,?)",
-                  (f"Read: {lesson.get('title','Lesson')}", lesson.get("subject", ""),
-                   f"{lesson.get('read','6 min')} · {lesson.get('author','Professor')}",
-                   lesson_id, now))
-    log_feed(lesson.get("author", "Professor"),
-             f"Published lesson · “{lesson.get('title','Lesson')}”", "neutral")
+        if board_card:
+            c.execute("INSERT INTO board(col,type,title,subject,meta,tool,lesson_id,created_at) "
+                      "VALUES('lessons','lesson',?,?,?,0,?,?)",
+                      (f"Read: {lesson.get('title','Lesson')}", lesson.get("subject", ""),
+                       f"{lesson.get('read','6 min')} · {lesson.get('author','Professor')}",
+                       lesson_id, now))
+    if feed:
+        log_feed(lesson.get("author", "Professor"),
+                 f"Published lesson · “{lesson.get('title','Lesson')}”", "neutral")
     return lesson_id
 
 
@@ -470,12 +577,20 @@ def get_lesson(lesson_id: int) -> dict | None:
 
 
 def _lesson_dict(row) -> dict:
+    keys = row.keys()
+
+    def col(name, default):
+        return (row[name] if name in keys else None) or default
+
     return {
         "id": row["id"], "title": row["title"], "author": row["author"],
         "authorRole": "professor", "subject": row["subject"], "read": row["read_time"],
         "intro": row["intro"], "sections": json.loads(row["sections"] or "[]"),
         "probe": json.loads(row["probe"] or "{}"), "sandbox": row["sandbox"],
         "code_language": row["code_language"], "code_starter": row["code_starter"],
+        "refs": json.loads(col("refs", "[]")),
+        "objectives": json.loads(col("objectives", "[]")),
+        "takeaways": json.loads(col("takeaways", "[]")),
         "next": "Build on this",
     }
 
@@ -493,6 +608,87 @@ def add_board_card(col: str, type_: str, title: str, subject: str, meta: str,
                   "VALUES(?,?,?,?,?,0,?,?,?)",
                   (col, type_, title, subject, meta,
                    None if good is None else int(good), lesson_id, time.time()))
+
+
+# --- the catalog: every syllabus topic is a future class -----------------------
+
+def seed_catalog(subject_id: str, module_id: str, topics: list[str]) -> None:
+    """One catalog row per (module, topic). Idempotent."""
+    now = time.time()
+    with connect() as c:
+        for i, t in enumerate(topics):
+            exists = c.execute("SELECT 1 FROM catalog WHERE module_id=? AND topic=?",
+                               (module_id, t)).fetchone()
+            if not exists:
+                c.execute("INSERT INTO catalog(subject_id,module_id,topic,position,status,created_at) "
+                          "VALUES(?,?,?,?,'planned',?)", (subject_id, module_id, t, i, now))
+
+
+def next_planned_catalog() -> dict | None:
+    """The next class to write, in curriculum order."""
+    with connect() as c:
+        row = c.execute(
+            "SELECT cat.*, s.title AS subject_title, m.title AS module_title, "
+            "m.status AS module_status "
+            "FROM catalog cat JOIN subjects s ON s.id = cat.subject_id "
+            "JOIN modules m ON m.id = cat.module_id "
+            "WHERE cat.status = 'planned' "
+            "ORDER BY s.position, m.position, cat.position LIMIT 1").fetchone()
+    return dict(row) if row else None
+
+
+def first_planned_for_subject(subject_id: str) -> dict | None:
+    with connect() as c:
+        row = c.execute(
+            "SELECT cat.*, s.title AS subject_title, m.title AS module_title, "
+            "m.status AS module_status "
+            "FROM catalog cat JOIN subjects s ON s.id = cat.subject_id "
+            "JOIN modules m ON m.id = cat.module_id "
+            "WHERE cat.status = 'planned' AND cat.subject_id = ? "
+            "ORDER BY m.position, cat.position LIMIT 1", (subject_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_catalog_entry(catalog_id: int) -> dict | None:
+    with connect() as c:
+        row = c.execute(
+            "SELECT cat.*, s.title AS subject_title, m.title AS module_title, "
+            "m.status AS module_status "
+            "FROM catalog cat JOIN subjects s ON s.id = cat.subject_id "
+            "JOIN modules m ON m.id = cat.module_id WHERE cat.id = ?",
+            (catalog_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def set_catalog_status(catalog_id: int, status: str, lesson_id: int | None = None) -> None:
+    with connect() as c:
+        if lesson_id is None:
+            c.execute("UPDATE catalog SET status=? WHERE id=?", (status, catalog_id))
+        else:
+            c.execute("UPDATE catalog SET status=?, lesson_id=? WHERE id=?",
+                      (status, lesson_id, catalog_id))
+
+
+def catalog_counts() -> tuple[int, int]:
+    with connect() as c:
+        row = c.execute("SELECT SUM(CASE WHEN status='ready' THEN 1 ELSE 0 END) AS ready, "
+                        "COUNT(*) AS total FROM catalog").fetchone()
+    return (row["ready"] or 0, row["total"] or 0)
+
+
+def module_status(module_id: str) -> str:
+    with connect() as c:
+        row = c.execute("SELECT status FROM modules WHERE id=?", (module_id,)).fetchone()
+        return row["status"] if row else ""
+
+
+def module_topics(module_id: str) -> list[str]:
+    with connect() as c:
+        row = c.execute("SELECT topics FROM modules WHERE id=?", (module_id,)).fetchone()
+    try:
+        return json.loads(row["topics"] or "[]") if row else []
+    except (json.JSONDecodeError, KeyError, IndexError):
+        return []
 
 
 # --- exams -------------------------------------------------------------------
@@ -629,6 +825,14 @@ def ui_state() -> dict:
                         c.execute("SELECT * FROM channels ORDER BY position").fetchall()]
         message_rows = [dict(r) for r in
                         c.execute("SELECT * FROM messages ORDER BY id").fetchall()]
+        material_rows = [dict(r) for r in
+                         c.execute("SELECT * FROM materials ORDER BY id DESC").fetchall()]
+        catalog_rows = [dict(r) for r in c.execute(
+            "SELECT cat.id AS catalog_id, cat.topic, cat.status, cat.lesson_id, "
+            "s.title AS subject_title, s.prof_name, m.title AS module_title "
+            "FROM catalog cat JOIN subjects s ON s.id = cat.subject_id "
+            "JOIN modules m ON m.id = cat.module_id "
+            "ORDER BY s.position, m.position, cat.position").fetchall()]
 
     # student stats
     days_since_start = max(1, int((time.time() - (college["started_at"] or time.time())) / 86400) + 1)
@@ -654,15 +858,16 @@ def ui_state() -> dict:
     SUBJECTS = []
     for s in subject_rows:
         mods = mods_by_subject.get(s["id"], [])
+        # Progress = modules actually completed. Day one reads 0%, honestly.
         done = sum(1 for m in mods if m["status"] == "done")
-        active_started = sum(0.5 for m in mods if m["status"] == "active")
-        progress = round((done + active_started) / max(1, len(mods)) * 100)
+        progress = round(done / max(1, len(mods)) * 100)
         SUBJECTS.append({
             "id": s["id"], "title": s["title"], "prof": s["professor_id"],
             "profName": s["prof_name"], "progress": progress, "hue": s["hue"],
             "sandboxes": json.loads(s["sandboxes"] or "[]"),
             "modules": [{"id": m["id"], "title": m["title"], "status": m["status"],
-                         "exam": m["exam_status"]} for m in mods],
+                         "exam": m["exam_status"],
+                         "topics": json.loads(m.get("topics") or "[]")} for m in mods],
         })
 
     # budget split: every agent shares the global credit cap equally
@@ -713,9 +918,33 @@ def ui_state() -> dict:
                  "sub": ch["sub"], "hue": ch["hue"], "unread": ch["unread"],
                  "messages": msgs_by_channel.get(ch["id"], [])} for ch in channel_rows]
 
-    LIBRARY = [{"id": r["id"], "title": r["title"], "author": r["author"],
-                "subject": r["subject"], "read": r["read_time"], "tag": r["tag"],
-                "state": r["state"]} for r in lesson_rows]
+    # The Library is the full course catalog: every class, ready or planned.
+    lessons_by_id = {r["id"]: r for r in lesson_rows}
+    LIBRARY = []
+    in_catalog: set[int] = set()
+    for ce in catalog_rows:
+        lrow = lessons_by_id.get(ce["lesson_id"]) if ce["lesson_id"] else None
+        if lrow is not None:
+            in_catalog.add(lrow["id"])
+        LIBRARY.append({
+            "id": lrow["id"] if lrow else f"c{ce['catalog_id']}",
+            "catalog_id": ce["catalog_id"],
+            "lesson_id": ce["lesson_id"] if lrow else None,
+            "title": lrow["title"] if lrow else ce["topic"],
+            "author": ce["prof_name"],
+            "subject": ce["subject_title"],
+            "module": ce["module_title"],
+            "read": lrow["read_time"] if lrow else "—",
+            "tag": lrow["tag"] if lrow else "class",
+            "state": "ready" if lrow is not None else ce["status"],
+        })
+    # Lessons authored outside the catalog (Guide questions, direct requests).
+    for r in lesson_rows:
+        if r["id"] not in in_catalog:
+            LIBRARY.append({"id": r["id"], "catalog_id": None, "lesson_id": r["id"],
+                            "title": r["title"], "author": r["author"],
+                            "subject": r["subject"], "module": "on request",
+                            "read": r["read_time"], "tag": r["tag"], "state": "ready"})
 
     module_status = {m["id"]: m["status"] for m in module_rows}
     mastery_by_subject: dict[str, list] = {}
@@ -729,13 +958,22 @@ def ui_state() -> dict:
     MASTERY = [{"subject": s["title"], "hue": s["hue"],
                 "concepts": mastery_by_subject.get(s["id"], [])} for s in subject_rows]
 
+    MATERIALS = [{
+        "id": m["id"], "subject": m["subject"], "kind": m["kind"],
+        "title": m["title"], "authors": m["authors"], "url": m["url"],
+        "summary": m["summary"], "tools": json.loads(m["tools"] or "[]"),
+        "addedBy": m["added_by"],
+    } for m in material_rows]
+
     return {
         "enrolled": True,
         "STUDENT": STUDENT, "SUBJECTS": SUBJECTS, "FACULTY": FACULTY,
         "KANBAN": KANBAN, "EXAMS": EXAMS, "GRADES": GRADES, "FEED": FEED,
         "CHANNELS": CHANNELS, "LIBRARY": LIBRARY, "MASTERY": MASTERY,
+        "MATERIALS": MATERIALS,
         "LESSON": latest_lesson(),
         "NEXT_EXAM": next_exam_module(),
+        "BUILD": build_status(),
         "USAGE": {"used": usage["used"], "cap": usage["cap"], "remaining": usage["remaining"]},
     }
 

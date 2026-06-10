@@ -471,6 +471,16 @@ function Connections({ terms, data }){
         ))}
       </div>
 
+      <div className="card coral-note" style={{marginBottom:26}}>
+        <div className="row" style={{justifyContent:'space-between',alignItems:'center',gap:14,flexWrap:'wrap'}}>
+          <div style={{flex:1,minWidth:240}}>
+            <b style={{fontFamily:'var(--font-d)',fontSize:14.5}}>Start fresh</b>
+            <p className="muted" style={{fontSize:13,marginTop:6}}>Wipe the college — curriculum, lessons, exams, progress — and onboard again with a new goal. Your model connection and credit budget stay. (Multi-account support comes later.)</p>
+          </div>
+          <button className="btn ghost" onClick={()=>{ if(confirm('Start fresh?\n\nThis wipes your college and returns to onboarding. Your model connection and budget stay.')) window.AULA_API.startFresh(); }}>↺ Start fresh</button>
+        </div>
+      </div>
+
       <div className="eyebrow" style={{marginBottom:12}}>MCP registry · {data.MCP.filter(m=>m.status==='mounted').length} mounted</div>
       <div className="grid" style={{gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))'}}>
         {data.MCP.map(m=>(

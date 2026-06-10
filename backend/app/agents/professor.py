@@ -22,30 +22,104 @@ _STARTERS = {
 }
 
 
-def _system(methodology: dict) -> str:
-    return f"""You are a Professor at AULA, an AI college. Write ONE short lesson
-for a learner on the given topic. Teach in this style:
+def _system(methodology: dict, grounded: bool) -> str:
+    ground_rule = (
+        "\n- Teaching materials are provided: extract the facts and framing from "
+        "them — that is what you teach. Name a source where natural ('As <source> "
+        "puts it…'). Do not contradict the materials."
+        if grounded else "")
+    return f"""You are a Professor at AULA, an AI-run college. Write ONE focused
+lesson on the given topic for your learner. You teach ANY domain — code,
+science, art, law, language — with the same craft.
+
+Your teaching style is set by the Provost. Follow it exactly:
 - pacing: {methodology.get('pacing')}
 - sequence: {methodology.get('sequence')}
 - modality: {methodology.get('modality')}
 - examples: {methodology.get('examples')}
 
+Quality bar — what separates a great lesson from filler:
+- Every paragraph teaches ONE idea the learner could explain back afterwards.
+- Concrete beats abstract: real names, numbers, worked examples, mini-scenarios.
+- Address the learner directly ("you"), with the warmth of a good teacher.
+- No filler phrases ("in today's world", "it's important to note").{ground_rule}
+- The probe must test understanding, not recall — a learner who truly got it
+  can answer in 2-4 sentences; one who skimmed cannot.
+
 Return a single JSON object, no markdown:
 {{
   "title": "<lesson title>",
   "read": "<e.g. 6 min>",
-  "intro": "<2-3 sentence hook explaining why this matters>",
+  "intro": "<2-3 sentence hook: why this matters to the learner's goal>",
   "sections": [{{"h": "<heading>", "p": "<one tight paragraph>"}}],
   "probe": {{"q": "<one question that checks real understanding>", "hint": "<short hint>"}}
 }}
-Rules: 3 sections. Keep paragraphs concrete. Output ONLY the JSON object."""
+Rules: exactly 3 sections. Output ONLY the JSON object."""
+
+
+def _system_full(methodology: dict, grounded: bool) -> str:
+    ground_rule = (
+        "\n- Teaching materials are provided: extract the facts and framing from "
+        "them — that is what you teach. Name a source where natural. Never "
+        "contradict the materials."
+        if grounded else "")
+    return f"""You are a Professor at AULA, an AI-run college, writing a FULL
+CLASS — a proper 101 lesson, the kind a great university lecturer would give.
+Not a summary: definitions, worked examples, the why behind everything. You
+teach ANY domain — code, science, art, law, language — with the same craft.
+
+Your teaching style is set by the Provost. Follow it exactly:
+- pacing: {methodology.get('pacing')}
+- sequence: {methodology.get('sequence')}
+- modality: {methodology.get('modality')}
+- examples: {methodology.get('examples')}
+
+Quality bar:
+- 5 to 8 sections that build on each other: motivate → define → show how it
+  works → worked example(s) → where it goes wrong → how it connects onward.
+- Each section: 2-4 substantial paragraphs. Every paragraph teaches one idea
+  the learner could explain back. Concrete names, numbers, scenarios.
+- Include a "code" example in a section when showing beats telling (any
+  language/pseudocode fitting the domain — recipes, contracts and formulas
+  count as code blocks too).
+- Include a "diagram" (Mermaid syntax: flowchart TD/LR or sequenceDiagram)
+  in 1-2 sections whenever architecture, flow, or relationships need
+  visualizing. Keep node labels short; valid Mermaid only.
+- Address the learner directly. No filler phrases.{ground_rule}
+- The probe tests understanding, not recall.
+
+Return a single JSON object, no markdown:
+{{
+  "title": "<class title>",
+  "read": "<e.g. 12 min>",
+  "intro": "<3-4 sentence hook: what this class unlocks and why it matters>",
+  "objectives": ["<3-5 things the learner will be able to do afterwards>"],
+  "sections": [
+    {{"h": "<heading>", "paras": ["<paragraph>", "<paragraph>"],
+      "code": {{"language": "<lang>", "snippet": "<short runnable example>"}},
+      "diagram": "<mermaid syntax, only when it genuinely helps>"}}
+  ],
+  "takeaways": ["<3-5 one-line takeaways>"],
+  "probe": {{"q": "<one question that checks real understanding>", "hint": "<short hint>"}}
+}}
+"code" and "diagram" are OPTIONAL per section — include them where they earn
+their place. Output ONLY the JSON object."""
 
 
 def design_lesson(provider: LLMProvider, *, subject: str, topic: str, professor: str,
-                  methodology: dict, sandbox: str = "python") -> dict:
-    user = f"Subject: {subject}\nTopic the learner asked about: {topic}"
-    raw = provider.complete(_system(methodology), [{"role": "user", "content": user}],
-                            max_tokens=2500, json=True)
+                  methodology: dict, sandbox: str = "python",
+                  materials: str = "", syllabus_topics: list[str] | None = None,
+                  depth: str = "full") -> dict:
+    user = f"Subject: {subject}\nThe class to teach: {topic}"
+    if syllabus_topics:
+        user += "\nSyllabus context for this module:\n- " + "\n- ".join(syllabus_topics[:8])
+    if materials:
+        user += ("\n\nTeaching materials you gathered for this subject "
+                 "(teach from these — extract what matters):\n" + materials[:6000])
+    full = depth == "full"
+    system = (_system_full if full else _system)(methodology, bool(materials))
+    raw = provider.complete(system, [{"role": "user", "content": user}],
+                            max_tokens=7000 if full else 2500, json=True)
     data = _parse(raw, subject, topic)
     lang, starter = _STARTERS.get(sandbox, _STARTERS["python"])
     return {
@@ -53,15 +127,37 @@ def design_lesson(provider: LLMProvider, *, subject: str, topic: str, professor:
         "author": professor or "Professor",
         "authorRole": "professor",
         "subject": subject,
-        "read": data.get("read", "6 min"),
+        "read": data.get("read", "12 min" if full else "6 min"),
         "intro": data["intro"],
-        "sections": data["sections"][:4],
+        "objectives": [str(o) for o in (data.get("objectives") or [])][:5],
+        "sections": _normalize_sections(data["sections"]),
+        "takeaways": [str(t) for t in (data.get("takeaways") or [])][:5],
         "probe": data["probe"],
         "sandbox": sandbox,
         "code_language": lang,
         "code_starter": starter,
         "next": "Build on this",
     }
+
+
+def _normalize_sections(sections: list) -> list[dict]:
+    """Accept both shapes: old {h, p} and full {h, paras, code?, diagram?}."""
+    out = []
+    for s in sections[:8]:
+        if not isinstance(s, dict):
+            continue
+        paras = s.get("paras") or ([s["p"]] if s.get("p") else [])
+        sec = {"h": str(s.get("h", "Section")),
+               "paras": [str(p) for p in paras if str(p).strip()][:4]}
+        code = s.get("code")
+        if isinstance(code, dict) and str(code.get("snippet", "")).strip():
+            sec["code"] = {"language": str(code.get("language", "text"))[:24],
+                           "snippet": str(code["snippet"])[:2000]}
+        if str(s.get("diagram", "")).strip():
+            sec["diagram"] = str(s["diagram"])[:1500]
+        if sec["paras"]:
+            out.append(sec)
+    return out
 
 
 def _parse(raw: str, subject: str, topic: str) -> dict:

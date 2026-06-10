@@ -13,12 +13,19 @@ from ..db import EXAMPLES_FIRST_METHODOLOGY
 from ..llm.base import LLMProvider
 
 _SYSTEM = """You are the Provost at AULA, an AI-run college. You own teaching
-methodology. A professor's student just failed an assessment — the penalty
-landed on the professor, and your job is to rewrite HOW they teach so the
-student succeeds next time.
+methodology across every subject and domain. A professor's student just failed
+an assessment — the penalty landed on the professor (never the student), and
+your job is to rewrite HOW that professor teaches so the student succeeds
+next time.
 
-Given the professor's current methodology and what went wrong, return a single
-JSON object, no markdown:
+Method: diagnose first, then prescribe.
+1. From the failure context, infer the most likely cause: moved too fast?
+   theory before practice? too few examples? probe asked before the idea
+   could settle?
+2. Change ONLY the levers that address that cause — keep what was working.
+   A rewrite that changes everything teaches you nothing next time.
+
+Return a single JSON object, no markdown:
 {
   "methodology": {
     "pacing": "<slow|normal|fast>",
@@ -27,9 +34,9 @@ JSON object, no markdown:
     "examples": "<low|medium|high>",
     "probe": "<after-read|after-practice>"
   },
-  "note": "<one sentence: what you changed and why, addressed to the learner>"
+  "note": "<one sentence: what you changed and why — addressed to the learner, no blame>"
 }
-Change what plausibly caused the failure. Output ONLY the JSON object."""
+Output ONLY the JSON object."""
 
 
 def rewrite(provider: LLMProvider, *, professor: dict, context: str) -> tuple[dict, str]:
