@@ -2,18 +2,43 @@
 const { useState: useStateL, useEffect: useEffectL, useRef: useRefL } = React;
 
 /* ---------- Dashboard ---------- */
+function BuildBanner({ data }){
+  const b = data.BUILD;
+  if(!window.AULA_LIVE || !b || b.finished) return null;
+  const paused = b.stage === 'paused';
+  function resume(){
+    if(window.AULA_API) window.AULA_API.buildContinue().then(()=>window.AULA_API.hydrate()).catch(()=>{});
+  }
+  return (
+    <div className={"card "+(paused?'coral-note':'accent-note')} style={{marginBottom:16}}>
+      <div className="row" style={{justifyContent:'space-between',flexWrap:'wrap',gap:10,marginBottom:10}}>
+        <b style={{fontFamily:'var(--font-d)',fontSize:14.5}}>{paused?'⏸ University build paused':'⚙ Your university is being built'}</b>
+        <span className={"badge mono "+(paused?'coral':'accent')}>{b.done}/{b.total} classes</span>
+      </div>
+      <Bar value={b.done} max={Math.max(1,b.total)} />
+      <p className="muted" style={{fontSize:13,marginTop:10}}>{b.message}</p>
+      {paused
+        ? <button className="btn primary" style={{marginTop:10}} onClick={resume}>Resume the build →</button>
+        : <p className="faint mono" style={{fontSize:11,marginTop:6}}>Syllabi, textbooks, full 101 classes and exams — authored live by your faculty. This page updates as they work.</p>}
+    </div>
+  );
+}
 function Dashboard({ terms, nav, data }){
   const S = data.STUDENT;
   const ranks = terms.ranks;
+  const L = data.LESSON;
   return (
     <div className="screen-pad">
+      <BuildBanner data={data} />
       <div className="dash-hero">
         <div>
           <div className="eyebrow" style={{marginBottom:10}}>{terms.semester} · week {S.week} of {S.weeks}</div>
           <h1 style={{fontSize:30}}>Welcome back, {S.name}.</h1>
           <p className="muted" style={{marginTop:8,fontSize:16,maxWidth:'52ch'}}>{S.mission}</p>
         </div>
-        <button className="btn primary" onClick={()=>nav('lesson')}>Continue · {data.LESSON.title} →</button>
+        {L
+          ? <button className="btn primary" onClick={()=>nav('lesson')}>Continue · {L.title} →</button>
+          : <button className="btn primary" onClick={()=>nav('guide')}>Ask your {terms.guide} →</button>}
       </div>
 
       <div className="stat-row">
@@ -66,12 +91,25 @@ function Dashboard({ terms, nav, data }){
         <div className="col" style={{gap:16}}>
           <div className="card next-card">
             <div className="eyebrow" style={{marginBottom:12}}>Up next</div>
-            <div className="row" style={{gap:12}}>
-              <Avatar name={data.LESSON.author} hue="#f5a623" size={40} sq />
-              <div><b style={{fontFamily:'var(--font-d)',fontSize:15}}>{data.LESSON.title}</b><div className="faint" style={{fontSize:12,fontFamily:'var(--font-m)'}}>{terms.professor} {data.LESSON.author} · {data.LESSON.read}</div></div>
-            </div>
-            <p className="muted" style={{fontSize:13,margin:'13px 0 16px'}}>{data.LESSON.intro.slice(0,110)}…</p>
-            <button className="btn primary" style={{width:'100%',justifyContent:'center'}} onClick={()=>nav('lesson')}>Read the lesson →</button>
+            {L ? (
+              <React.Fragment>
+                <div className="row" style={{gap:12}}>
+                  <Avatar name={L.author} hue="#f5a623" size={40} sq />
+                  <div><b style={{fontFamily:'var(--font-d)',fontSize:15}}>{L.title}</b><div className="faint" style={{fontSize:12,fontFamily:'var(--font-m)'}}>{terms.professor} {L.author} · {L.read}</div></div>
+                </div>
+                <p className="muted" style={{fontSize:13,margin:'13px 0 16px'}}>{(L.intro||'').slice(0,110)}…</p>
+                <button className="btn primary" style={{width:'100%',justifyContent:'center'}} onClick={()=>nav('lesson')}>Read the lesson →</button>
+              </React.Fragment>
+            ) : (
+              <React.Fragment>
+                <p className="muted" style={{fontSize:13.5,margin:'4px 0 14px'}}>
+                  {data.BUILD && !data.BUILD.finished
+                    ? 'Your professors are writing your first lessons right now — they’ll appear here.'
+                    : 'No lesson yet — ask your '+terms.guide+' anything and a professor will write one for you.'}
+                </p>
+                <button className="btn primary" style={{width:'100%',justifyContent:'center'}} onClick={()=>nav('guide')}>Ask the {terms.guide} →</button>
+              </React.Fragment>
+            )}
           </div>
           <div className="card">
             <h3 style={{marginBottom:12}}>Your faculty</h3>
@@ -135,8 +173,12 @@ function CurriculumScreen({ terms, nav, data }){
                 <div key={m.id} className={"curr-mod "+m.status}>
                   <span className={"cm-ico "+m.status}>{statusIcon[m.status]}</span>
                   <span className="cm-n mono">{terms.module} {i+1}</span>
-                  <span className="cm-title">{m.title}</span>
-                  <span className={"badge "+eb[0]} style={{marginLeft:'auto'}}>{terms.exam}: {eb[1]}</span>
+                  <span className="cm-title">
+                    {m.title}
+                    {m.topics && m.topics.length>0 &&
+                      <span className="faint" style={{display:'block',fontSize:11,marginTop:3,lineHeight:1.5}}>{m.topics.join('  ·  ')}</span>}
+                  </span>
+                  <span className={"badge "+eb[0]} style={{marginLeft:'auto',flexShrink:0}}>{terms.exam}: {eb[1]}</span>
                 </div>
               );
             })}
@@ -196,6 +238,37 @@ function MyBoard({ terms, nav, data }){
 /* ---------- Lesson (blog reader) ---------- */
 function LessonScreen({ terms, nav, data, lessonOpen }){
   const L = (lessonOpen && typeof lessonOpen==='object' && lessonOpen.title) ? lessonOpen : data.LESSON;
+  if(!L){
+    return (
+      <div className="screen-pad">
+        <div className="card" style={{textAlign:'center',padding:'60px 20px'}}>
+          <h2 style={{fontSize:22}}>No lesson here yet</h2>
+          <p className="muted" style={{marginTop:8}}>Ask your {terms.guide} anything — the right {terms.professor.toLowerCase()} will write one for you.</p>
+          <button className="btn primary" style={{marginTop:16}} onClick={()=>nav('guide')}>Ask the {terms.guide} →</button>
+        </div>
+      </div>
+    );
+  }
+  return <LessonBody key={L.id||L.title} terms={terms} nav={nav} L={L} />;
+}
+/* Mermaid architecture diagrams — bad LLM syntax must never break the page. */
+function MermaidBlock({ code, idx }){
+  const ref = useRefL(null);
+  const [failed,setFailed] = useStateL(false);
+  useEffectL(()=>{
+    if(!window.mermaid || !ref.current){ setFailed(true); return; }
+    try{
+      window.mermaid.initialize({ startOnLoad:false, theme:'dark', securityLevel:'loose' });
+      window.mermaid.render('aula-mmd-'+idx+'-'+Math.floor(Math.random()*1e6), code)
+        .then(r=>{ if(ref.current) ref.current.innerHTML = r.svg; })
+        .catch(()=>setFailed(true));
+    }catch(e){ setFailed(true); }
+  },[code]);
+  if(failed) return null;
+  return <div ref={ref} style={{margin:'14px 0',padding:'14px',background:'rgba(255,255,255,.025)',border:'1px solid var(--line)',borderRadius:12,overflowX:'auto'}} />;
+}
+
+function LessonBody({ terms, nav, L }){
   const [ans,setAns] = useStateL('');
   const [sent,setSent] = useStateL(false);
   const [grade,setGrade] = useStateL(null);   // real Examiner result
@@ -239,11 +312,55 @@ function LessonScreen({ terms, nav, data, lessonOpen }){
           <div><b style={{fontFamily:'var(--font-d)',fontSize:13.5}}>{terms.professor} {L.author}</b><div className="faint mono" style={{fontSize:11}}>{L.read} read · wrote this for you</div></div>
         </div>
         <p className="lesson-intro">{L.intro}</p>
+
+        {L.objectives && L.objectives.length>0 && (
+          <div className="card" style={{margin:'4px 0 22px',padding:'14px 18px'}}>
+            <div className="eyebrow" style={{marginBottom:8}}>What you'll learn in this class</div>
+            {L.objectives.map((o,i)=>(
+              <div key={i} className="row" style={{gap:9,marginBottom:6,alignItems:'flex-start'}}>
+                <span className="dot" style={{background:'var(--accent)',marginTop:7,flexShrink:0}}/>
+                <span style={{fontSize:13.5}}>{o}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {L.sections.map((s,i)=>(
           <div key={i} className="lesson-sec">
-            <h3>{s.h}</h3><p>{s.p}</p>
+            <h3>{s.h}</h3>
+            {(s.paras || (s.p?[s.p]:[])).map((p,j)=><p key={j}>{p}</p>)}
+            {s.code && s.code.snippet && (
+              <pre className="cc-code" style={{borderRadius:10,padding:'12px 14px',margin:'10px 0',overflowX:'auto',whiteSpace:'pre-wrap'}}>{s.code.snippet}</pre>
+            )}
+            {s.diagram && <MermaidBlock code={s.diagram} idx={i} />}
           </div>
         ))}
+
+        {L.takeaways && L.takeaways.length>0 && (
+          <div className="card mint-note" style={{margin:'8px 0 18px',padding:'14px 18px'}}>
+            <div className="eyebrow" style={{marginBottom:8}}>Key takeaways</div>
+            {L.takeaways.map((t,i)=>(
+              <div key={i} className="row" style={{gap:9,marginBottom:6,alignItems:'flex-start'}}>
+                <span style={{color:'var(--mint)',fontSize:13,flexShrink:0}}>✓</span>
+                <span style={{fontSize:13.5}}>{t}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {L.refs && L.refs.length > 0 && (
+          <div className="card" style={{margin:'18px 0',padding:'14px 16px'}}>
+            <div className="eyebrow" style={{marginBottom:8}}>Taught from these sources · gathered by {terms.professor} {L.author}</div>
+            <div className="col" style={{gap:6}}>
+              {L.refs.slice(0,6).map((r,i)=>(
+                <a key={i} href={r.url||'#'} target="_blank" rel="noreferrer" className="row" style={{gap:8,textDecoration:'none',color:'inherit'}}>
+                  <span className="badge mono" style={{minWidth:64,justifyContent:'center'}}>{r.kind}</span>
+                  <span style={{fontSize:12.5}} className="muted">{r.title}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="codecell">
           <div className="cc-head">
@@ -457,38 +574,93 @@ function roleTermFor(role, terms){
   return ({ professor:terms.professor, principal:terms.principal, provost:'Provost', examiner:'Examiner', guide:terms.guide, me:'you' })[role] || role;
 }
 
-/* ---------- Library ---------- */
+/* ---------- Library (lessons + scraped materials) ---------- */
+const MAT_ICON = { textbook:'📕', book:'📚', paper:'📄', article:'📖', link:'🔗', curriculum:'🏛' };
 function LibraryScreen({ terms, nav, data }){
   const [q,setQ] = useStateL('');
   const [subj,setSubj] = useStateL('all');
-  const subjects = ['all', ...new Set(data.LIBRARY.map(l=>l.subject))];
-  const items = data.LIBRARY.filter(l=>
+  const [tab,setTab] = useStateL('lessons');
+  const [genId,setGenId] = useStateL(null);   // catalog id being written on demand
+  const materials = data.MATERIALS || [];
+  const source = tab==='lessons' ? data.LIBRARY : materials;
+  const subjects = ['all', ...new Set(source.map(l=>l.subject))];
+  const ql = q.toLowerCase();
+  const items = source.filter(l=>
     (subj==='all'||l.subject===subj) &&
-    (l.title.toLowerCase().includes(q.toLowerCase())||l.author.toLowerCase().includes(q.toLowerCase())));
+    ((l.title||'').toLowerCase().includes(ql)||(l.author||l.authors||'').toLowerCase().includes(ql)));
+  const readyCount = data.LIBRARY.filter(l=>l.state==='ready'||l.state==='new'||l.state==='read'||l.state==='unread').length;
+
+  function openOrWrite(l){
+    const isReady = l.state==='ready'||l.state==='new'||l.state==='read'||l.state==='unread';
+    if(isReady){
+      openTask({type:'lesson',lesson_id:(window.AULA_LIVE?(l.lesson_id||l.id):null)},nav);
+      return;
+    }
+    // planned/writing: have the professor write this class right now
+    if(l.catalog_id && window.AULA_LIVE && genId===null){
+      setGenId(l.catalog_id);
+      window.AULA_API.catalogGenerate(l.catalog_id)
+        .then(r=>{ nav('lesson', r.lesson); window.AULA_API.hydrate(); })
+        .catch(()=>{})
+        .finally(()=>setGenId(null));
+    }
+  }
+
   return (
     <div className="screen-pad wide">
       <div className="row" style={{justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:12}}>
-        <div><h1 style={{fontSize:26}}>Library</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Every lesson your faculty has authored · {data.LIBRARY.length} entries</p></div>
-        <input className="lib-search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Search lessons…" />
+        <div><h1 style={{fontSize:26}}>Library</h1><p className="muted" style={{fontSize:14,marginTop:4}}>{readyCount} of {data.LIBRARY.length} classes ready · {materials.length} materials your faculty gathered</p></div>
+        <input className="lib-search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Search…" />
+      </div>
+      <div className="row" style={{gap:8,marginBottom:14}}>
+        <div className="seg">
+          <button className={tab==='lessons'?'on':''} onClick={()=>{setTab('lessons');setSubj('all');}}>Classes · {readyCount}/{data.LIBRARY.length}</button>
+          <button className={tab==='materials'?'on':''} onClick={()=>{setTab('materials');setSubj('all');}}>Materials · {materials.length}</button>
+        </div>
       </div>
       <div className="row" style={{gap:8,marginBottom:18,flexWrap:'wrap'}}>
         {subjects.map(s=><button key={s} className={"ex-chip"+(subj===s?' on-chip':'')} onClick={()=>setSubj(s)} style={subj===s?{color:'var(--accent)',borderColor:'var(--accent-line)',background:'var(--accent-soft)'}:{}}>{s==='all'?'All subjects':s}</button>)}
       </div>
-      <div className="lib-grid">
-        {items.map(l=>(
-          <div key={l.id} className={"lib-card"+(l.state==='locked'?' locked':'')}
-               onClick={()=>l.state!=='locked'&&openTask({type:'lesson',lesson_id:(window.AULA_LIVE?l.id:null)},nav)}>
-            <div className="row" style={{justifyContent:'space-between',marginBottom:12}}>
-              <span className="badge mono">{l.tag}</span>
-              {l.state==='new' && <span className="badge accent">new</span>}
-              {l.state==='unread' && <span className="dot" style={{background:'var(--accent)'}} />}
-              {l.state==='locked' && <span className="badge">🔒</span>}
-            </div>
-            <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:15,lineHeight:1.25,marginBottom:10}}>{l.title}</div>
-            <div className="row" style={{gap:8}}><Avatar name={l.author} hue={l.author==='Mei'?'#f5a623':'#3b82f6'} size={22}/><span className="faint mono" style={{fontSize:11}}>{l.author} · {l.read}</span></div>
-          </div>
-        ))}
-      </div>
+      {tab==='lessons' ? (
+        <div className="lib-grid">
+          {items.map(l=>{
+            const isReady = l.state==='ready'||l.state==='new'||l.state==='read'||l.state==='unread';
+            const isWriting = l.state==='writing' || genId===l.catalog_id;
+            const isPlanned = l.state==='planned' && !isWriting;
+            return (
+              <div key={(l.catalog_id||'')+'-'+l.id} className={"lib-card"+(l.state==='locked'?' locked':'')}
+                   style={isPlanned?{opacity:.75}:{}}
+                   onClick={()=>l.state!=='locked'&&openOrWrite(l)}>
+                <div className="row" style={{justifyContent:'space-between',marginBottom:12}}>
+                  <span className="badge mono">{l.tag}</span>
+                  {l.state==='new' && <span className="badge accent">new</span>}
+                  {isWriting && <span className="badge accent mono">✍ writing…</span>}
+                  {isPlanned && <span className="badge gold mono">✍ write it now</span>}
+                  {l.state==='locked' && <span className="badge">🔒</span>}
+                </div>
+                <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:15,lineHeight:1.25,marginBottom:10}}>{l.title}</div>
+                <div className="row" style={{gap:8}}><Avatar name={l.author} hue={l.author==='Mei'?'#f5a623':'#3b82f6'} size={22}/><span className="faint mono" style={{fontSize:11}}>{l.author} · {l.module||l.read}</span></div>
+              </div>
+            );
+          })}
+          {!items.length && <div className="muted" style={{padding:20,fontSize:13.5}}>No classes yet — ask your {terms.guide} and a {terms.professor.toLowerCase()} will write one.</div>}
+        </div>
+      ) : (
+        <div className="lib-grid">
+          {items.map(m=>(
+            <a key={m.id} className="lib-card" href={m.url||'#'} target="_blank" rel="noreferrer" style={{textDecoration:'none',color:'inherit',display:'block'}}>
+              <div className="row" style={{justifyContent:'space-between',marginBottom:12}}>
+                <span className="badge mono">{MAT_ICON[m.kind]||'🔗'} {m.kind}</span>
+                {(m.tools||[]).map(t=><span key={t} className="badge gold mono">{t}</span>)}
+              </div>
+              <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:14.5,lineHeight:1.25,marginBottom:8}}>{m.title}</div>
+              {m.summary && <p className="muted" style={{fontSize:12,marginBottom:8,maxHeight:54,overflow:'hidden'}}>{m.summary}</p>}
+              <div className="faint mono" style={{fontSize:11}}>{m.authors||'—'} · added by {m.addedBy||'faculty'}</div>
+            </a>
+          ))}
+          {!items.length && <div className="muted" style={{padding:20,fontSize:13.5}}>No materials yet — your professors gather books, papers and articles during the college build.</div>}
+        </div>
+      )}
     </div>
   );
 }

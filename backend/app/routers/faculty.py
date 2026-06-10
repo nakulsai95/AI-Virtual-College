@@ -35,10 +35,12 @@ def author_lesson(body: LessonIn):
 
     provider = metered(build_provider(store.get_connector()), agent_id, "author lesson")
     connected = provider.id != "mock"
+    # What to teach is extracted from the materials this professor gathered.
+    context, refs = db.materials_context(_subject_id(body.subject), body.topic)
     try:
         lesson = professor.design_lesson(
             provider, subject=body.subject, topic=body.topic, professor=name,
-            methodology=methodology, sandbox=body.sandbox,
+            methodology=methodology, sandbox=body.sandbox, materials=context,
         )
         using_mock = provider.id == "mock"
     except Exception as e:  # noqa: BLE001
@@ -55,6 +57,7 @@ def author_lesson(body: LessonIn):
             methodology=methodology, sandbox=body.sandbox,
         )
         provider, using_mock = mock, True
+    lesson["refs"] = refs
 
     lesson_id = db.add_lesson(lesson, subject_id=(prof or {}).get("subject_id", ""))
     lesson["id"] = lesson_id

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from .. import db, store
+from .. import builder, db, research, store
 from ..agents import principal
 from ..agents.principal import SANDBOXES
 from ..llm import build_provider, metered
@@ -28,15 +28,27 @@ def list_sandboxes():
     return {"sandboxes": SANDBOXES}
 
 
+@router.get("/onboard/status")
+def onboard_status():
+    """Which stage the Principal is in right now (drives the hiring screen)."""
+    return {"stage": db.get_config("onboard_status", "idle")}
+
+
 @router.post("/onboard", response_model=OnboardOut)
-def onboard(body: OnboardIn):
+def onboard(body: OnboardIn, background: BackgroundTasks):
     if not body.goal.strip():
         raise HTTPException(400, "Tell the Principal what you want to learn.")
 
+    # The Principal first studies how real universities teach this.
+    db.set_config("onboard_status", "research")
+    digest, sources = research.curriculum_digest(body.goal)
+
+    db.set_config("onboard_status", "design")
     provider = metered(build_provider(store.get_connector()), "principal", "design curriculum")
     connected = provider.id != "mock"
     try:
-        curriculum = principal.design_curriculum(provider, body.goal, body.level)
+        curriculum = principal.design_curriculum(provider, body.goal, body.level,
+                                                 research=digest)
         using_mock = provider.id == "mock"
     except Exception as e:  # noqa: BLE001
         if connected:
@@ -49,11 +61,47 @@ def onboard(body: OnboardIn):
         curriculum = principal.design_curriculum(mock, body.goal, body.level)
         provider, using_mock = mock, True
 
+    # Quality pass: validate the draft against what universities actually
+    # teach, and fill important gaps before anything is persisted.
+    validation_note, topics_added = "", 0
+    if digest and not using_mock:
+        db.set_config("onboard_status", "validate")
+        v_provider = metered(build_provider(store.get_connector()), "principal",
+                             "validate curriculum")
+        curriculum, validation_note, topics_added = principal.validate_curriculum(
+            v_provider, curriculum, digest)
+
     curriculum = _ensure_full_faculty(curriculum, provider.model)
 
     # Persist the whole college — it now survives restarts.
     db.seed_from_curriculum(curriculum.model_dump(), body.goal, body.level)
     db.check_in()
+
+    if digest and not using_mock:
+        db.log_feed(
+            next((f.name for f in curriculum.faculty if f.role == "principal"), "Principal"),
+            "Validated the plan against university syllabi · "
+            + (f"added {topics_added} missing topics" if topics_added else "coverage aligned")
+            + (f" — {validation_note}" if validation_note else ""),
+            "update")
+
+    # The Principal's research lands in the library as curriculum sources.
+    principal_name = next((f.name for f in curriculum.faculty if f.role == "principal"),
+                          "Principal")
+    for src in sources:
+        db.add_material("", "Curriculum research", src["kind"], src["title"],
+                        src["authors"], src["url"], src.get("summary", ""),
+                        added_by=principal_name)
+    if sources:
+        db.log_feed(principal_name,
+                    f"Researched {len(sources)} curricula & sources before designing the plan",
+                    "update")
+
+    # Kick off the real college build: materials, first lessons, exams, kanban.
+    db.set_config("onboard_status", "done")
+    db.set_build_status("starting", "Faculty is preparing your semester…", 0,
+                        len(curriculum.subjects) * 4 + 1)
+    background.add_task(builder.build_college)
 
     return OnboardOut(
         curriculum=curriculum,

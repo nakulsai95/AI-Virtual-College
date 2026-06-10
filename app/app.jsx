@@ -80,6 +80,16 @@ function App(){
     return ()=>window.removeEventListener('aula:data', onData);
   },[]);
 
+  // While the faculty is building the college (materials, lessons, exams),
+  // keep pulling fresh state so the dashboard shows it happen.
+  useEffectA(()=>{
+    const id = setInterval(()=>{
+      const b = window.AULA_DATA.BUILD;
+      if (window.AULA_LIVE && b && !b.finished && window.AULA_API) window.AULA_API.hydrate();
+    }, 4000);
+    return ()=>clearInterval(id);
+  },[]);
+
   const terms = window.AULA_THEMES[themeKey].terms;
   const mark = window.AULA_THEMES[themeKey].mark;
   const setTheme = (k)=>setThemeKey(k);
@@ -128,6 +138,9 @@ function App(){
         <div className="sb-foot">
           <Avatar name={window.AULA_DATA.STUDENT.name} hue="var(--accent)" size={34} />
           <div className="who"><b>{window.AULA_DATA.STUDENT.name}</b><span>{window.AULA_DATA.STUDENT.handle}</span></div>
+          <button className="mini-btn" title="Start fresh — new goal, new college"
+            style={{marginLeft:'auto'}}
+            onClick={()=>{ if(confirm('Start fresh?\n\nThis wipes your college — curriculum, lessons, exams, progress — and returns to onboarding. Your model connection and budget stay.')) window.AULA_API.startFresh(); }}>↺</button>
         </div>
       </aside>
 

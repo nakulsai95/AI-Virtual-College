@@ -39,6 +39,7 @@
     testConnector: (cfg) => req('POST', '/api/connectors/test', cfg),
     clearConnector: () => req('DELETE', '/api/connectors/active'),
     onboard: (goal, level) => req('POST', '/api/onboard', { goal, level }),
+    onboardStatus: () => req('GET', '/api/onboard/status'),
     // Live college
     state: () => req('GET', '/api/state'),
     lesson: (subject, topic, professor, sandbox) =>
@@ -52,14 +53,23 @@
     channelRead: (channel) => req('POST', '/api/channel/' + channel + '/read'),
     examGenerate: (module_id) => req('POST', '/api/exams/generate', { module_id }),
     examSubmit: (exam_id, answers) => req('POST', '/api/exams/' + exam_id + '/submit', { answers }),
+    catalogGenerate: (catalog_id) => req('POST', '/api/catalog/' + catalog_id + '/generate'),
+    buildContinue: () => req('POST', '/api/build/continue'),
     usage: () => req('GET', '/api/usage'),
     setBudget: (cap) => req('PUT', '/api/budget', { cap }),
     resetCollege: () => req('POST', '/api/reset'),
+    /* Start fresh: wipe the college (keeps your connector key + budget),
+     * return to onboarding. */
+    startFresh: async () => {
+      try { await req('POST', '/api/reset'); } catch (e) { /* offline is fine */ }
+      localStorage.removeItem('aula_enrolled');
+      location.reload();
+    },
   };
 
   /* Pull the whole persistent college into AULA_DATA and re-render. */
   const LIVE_KEYS = ['STUDENT', 'SUBJECTS', 'FACULTY', 'KANBAN', 'EXAMS', 'GRADES',
-                     'FEED', 'CHANNELS', 'LIBRARY', 'MASTERY'];
+                     'FEED', 'CHANNELS', 'LIBRARY', 'MASTERY', 'MATERIALS'];
   async function hydrate() {
     try {
       const s = await AULA_API.state();
@@ -75,8 +85,11 @@
       }
       const D = window.AULA_DATA;
       LIVE_KEYS.forEach((k) => { if (s[k]) D[k] = s[k]; });
-      if (s.LESSON) D.LESSON = s.LESSON;
+      // Live college: the LESSON is whatever the faculty actually authored —
+      // null until then (never the demo lesson).
+      D.LESSON = s.LESSON || null;
       D.NEXT_EXAM = s.NEXT_EXAM || null;
+      D.BUILD = s.BUILD || null;
       D.USAGE = s.USAGE || null;
       window.AULA_LIVE = true;
       localStorage.setItem('aula_enrolled', '1');

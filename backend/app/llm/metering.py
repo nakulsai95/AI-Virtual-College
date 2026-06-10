@@ -28,12 +28,24 @@ class BudgetExceeded(LLMError):
 
 
 class MeteredProvider(LLMProvider):
-    """Wraps a real provider with budget enforcement + usage recording."""
+    """Wraps a real provider with budget enforcement + usage recording.
 
-    def __init__(self, inner: LLMProvider, agent: str, action: str = ""):
+    tier="bulk" routes the call to the provider's cheapest model — used for
+    high-volume content (the lesson factory, chat replies) so a full
+    university catalog costs dollars, not tens of dollars. Design, validation,
+    exams and the Provost stay on the user's main model (tier="main").
+    """
+
+    def __init__(self, inner: LLMProvider, agent: str, action: str = "",
+                 tier: str = "main"):
         self._inner = inner
         self._agent = agent
         self._action = action
+        if tier == "bulk" and inner.id not in ("mock", "ollama"):
+            spec = provider_spec(inner.id)
+            cheap = cheapest_model(spec["models"]) if spec else ""
+            if cheap:
+                inner.model = cheap
         self.id = inner.id
         self.name = inner.name
         self.api_key = inner.api_key
@@ -97,5 +109,6 @@ class MeteredProvider(LLMProvider):
             log.exception("failed to record usage")
 
 
-def metered(provider: LLMProvider, agent: str, action: str = "") -> LLMProvider:
-    return MeteredProvider(provider, agent, action)
+def metered(provider: LLMProvider, agent: str, action: str = "",
+            tier: str = "main") -> LLMProvider:
+    return MeteredProvider(provider, agent, action, tier)

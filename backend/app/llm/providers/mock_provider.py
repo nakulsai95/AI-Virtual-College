@@ -28,6 +28,14 @@ class MockProvider(LLMProvider):
         # prompt also contains the word "professor").
         if "design an exam" in sys_l:
             return _demo_exam_json(user)
+        if "detailed academic" in sys_l and "syllabus" in sys_l:
+            return _demo_syllabus_json(user)
+        if "quality pass" in sys_l:
+            return json.dumps({"aligned": True,
+                               "note": "Demo validation — coverage looks consistent.",
+                               "additions": []})
+        if "planning the learner's kanban" in sys_l:
+            return json.dumps({"cards": []})  # caller falls back to the deterministic plan
         if "you are the examiner" in sys_l:
             return _demo_grade_json(_answer_of(messages))
         if "you are a professor" in sys_l:
@@ -60,19 +68,38 @@ def _demo_grade_json(answer: str) -> str:
 
 def _demo_lesson_json(prompt: str) -> str:
     import re
-    m = re.search(r"topic the learner asked about:\s*(.+)", prompt, re.IGNORECASE)
-    topic = (m.group(1).strip() if m else prompt.strip()) or "the topic"
+    m = re.search(r"the class to teach:\s*(.+)", prompt, re.IGNORECASE) \
+        or re.search(r"topic the learner asked about:\s*(.+)", prompt, re.IGNORECASE)
+    topic = (m.group(1).strip().splitlines()[0] if m else prompt.strip()) or "the topic"
     title = topic[:60].strip().title()
     return json.dumps({
         "title": title,
-        "read": "5 min",
-        "intro": f"A quick demo lesson on {topic}. Connect a model in Connections "
-                 "to have a real Professor write this for you.",
+        "read": "8 min",
+        "intro": f"A demo 101 class on {topic}. Connect a model in Connections "
+                 "to have a real Professor write this in full depth.",
+        "objectives": [f"Explain what {topic} is and why it exists",
+                       f"Apply {topic} to a small real example",
+                       "Spot the most common mistake"],
         "sections": [
-            {"h": "The core idea", "p": f"{title} matters because it is foundational to your goal."},
-            {"h": "How it works", "p": "We break the concept into its moving parts and how they connect."},
-            {"h": "Putting it to use", "p": "Try the runnable example below, then answer the probe."},
+            {"h": "Why this matters",
+             "paras": [f"{title} is foundational to your goal — without it, the next "
+                       "modules won't land.",
+                       "We start with the problem it solves, then build the idea up "
+                       "from first principles."]},
+            {"h": "How it works",
+             "paras": ["We break the concept into its moving parts and how they connect."],
+             "diagram": "flowchart LR\n  A[Input] --> B[Core idea]\n  B --> C[Result]"},
+            {"h": "Worked example",
+             "paras": ["Walk through the runnable example below, predict the output, "
+                       "then run it."],
+             "code": {"language": "python", "snippet": "print('hello, " + title.replace("'", "") + "')"}},
+            {"h": "Where it goes wrong",
+             "paras": ["The classic mistake is skipping the fundamentals and "
+                       "memorizing the recipe instead of the reason."]},
         ],
+        "takeaways": [f"{title} solves a real problem — know which one",
+                      "Worked examples beat definitions",
+                      "Predict before you run"],
         "probe": {"q": f"In your own words, what problem does {topic} solve?",
                   "hint": "Think about what would break without it."},
     })
@@ -91,6 +118,17 @@ def _demo_exam_json(prompt: str) -> str:
          "hint": "Think about edge cases."},
         {"q": f"How would you explain {topic} to a beginner in two sentences?",
          "hint": "Plain words beat jargon."},
+    ]})
+
+
+def _demo_syllabus_json(prompt: str) -> str:
+    import re
+    mods = re.findall(r'\{"id":\s*"([^"]+)",\s*"title":\s*"([^"]+)"\}', prompt)
+    return json.dumps({"modules": [
+        {"id": mid, "topics": [
+            f"{title}: the core idea", f"{title}: key techniques",
+            f"{title}: common pitfalls", f"{title}: hands-on practice",
+        ]} for mid, title in mods
     ]})
 
 

@@ -8,9 +8,14 @@ import os
 import sys
 import tempfile
 
-# Use a throwaway database so the test never touches the real college.
+# Use a throwaway database so the test never touches the real college, and
+# pin the mock provider so the test NEVER spends real API credits — even if
+# a key is present in .env. (load_dotenv does not override existing env vars.)
 _tmp = tempfile.mkdtemp()
 os.environ["AULA_TEST"] = "1"
+os.environ["AULA_PROVIDER"] = "mock"
+os.environ["AULA_API_KEY"] = ""
+os.environ["AULA_NO_NET"] = "1"  # research is skipped — deterministic + offline
 
 from app import db  # noqa: E402
 from pathlib import Path  # noqa: E402
@@ -53,7 +58,7 @@ roles = {f["role"] for f in cur["faculty"]}
 check("all 7 roles hired", {"principal", "provost", "professor", "examiner",
                             "registrar", "guide", "counselor"} <= roles, str(roles))
 
-# 4. full state after enrolment
+# 4. full state after enrolment (TestClient runs the background build synchronously)
 r = client.get("/api/state")
 s = r.json()
 check("state enrolled", s["enrolled"] is True)
@@ -63,7 +68,52 @@ check("state has channels", len(s["CHANNELS"]) >= 2)
 check("state has mastery", len(s["MASTERY"]) >= 1 and len(s["MASTERY"][0]["concepts"]) >= 1)
 check("state has next exam", s["NEXT_EXAM"] is not None, str(s.get("NEXT_EXAM")))
 check("usage shape", "cap" in s["USAGE"] and "used" in s["USAGE"])
+check("subjects start at 0%", all(x["progress"] == 0 for x in s["SUBJECTS"]),
+      str([x["progress"] for x in s["SUBJECTS"]]))
 first_subject = s["SUBJECTS"][0]
+
+# 4b. the college build: catalog, factory, exams, kanban
+check("build finished", s["BUILD"] is not None and s["BUILD"]["finished"], str(s.get("BUILD")))
+check("syllabus detailed with topics",
+      any(m.get("topics") for x in s["SUBJECTS"] for m in x["modules"]),
+      str([m.get("topics") for x in s["SUBJECTS"] for m in x["modules"]][:3]))
+check("catalog is university-sized (every topic = a class)",
+      len(s["LIBRARY"]) >= sum(len(x["modules"]) for x in s["SUBJECTS"]),
+      f"library={len(s['LIBRARY'])}")
+check("content factory completed the catalog",
+      all(l["state"] == "ready" for l in s["LIBRARY"]),
+      str([(l['title'], l['state']) for l in s["LIBRARY"] if l['state'] != 'ready'][:3]))
+_lesson_cards = [t for t in s["KANBAN"]["lessons"] if t["type"] == "lesson"]
+check("board not flooded by the factory",
+      0 < len(_lesson_cards) < len(s["LIBRARY"]),
+      f"lesson cards={len(_lesson_cards)} catalog={len(s['LIBRARY'])}")
+
+# 4c. 101 depth: objectives, multi-paragraph sections, takeaways
+_ready = next(l for l in s["LIBRARY"] if l["state"] == "ready" and l["lesson_id"])
+r = client.get(f"/api/lessons/{_ready['lesson_id']}")
+_lj = r.json()["lesson"]
+check("101 lesson shape (objectives/paras/takeaways)",
+      bool(_lj["objectives"]) and bool(_lj["takeaways"])
+      and bool(_lj["sections"] and _lj["sections"][0].get("paras")),
+      str(_lj)[:200])
+
+# 4d. JIT: un-write one class, generate it on demand
+with db.connect() as _c:
+    _row = _c.execute("SELECT id FROM catalog ORDER BY id DESC LIMIT 1").fetchone()
+    _c.execute("UPDATE catalog SET status='planned', lesson_id=NULL WHERE id=?", (_row["id"],))
+r = client.post(f"/api/catalog/{_row['id']}/generate")
+check("JIT class generation", r.status_code == 200 and r.json()["lesson"]["id"] > 0,
+      r.text[:200])
+check("exams prepared in advance",
+      sum(1 for e in s["EXAMS"] if e["status"] == "upcoming") >= 1, str(s["EXAMS"]))
+check("kanban practice cards", len(s["KANBAN"]["doing"]) >= 1, str(s["KANBAN"]["doing"]))
+check("practice cards tagged with tools", any(t.get("tool") for t in s["KANBAN"]["doing"]))
+_total_modules = sum(len(x["modules"]) for x in s["SUBJECTS"])
+_board_cards = sum(len(v) for v in s["KANBAN"].values())
+check("board covers the whole learning path", _board_cards >= _total_modules,
+      f"cards={_board_cards} modules={_total_modules}")
+check("materials list present", isinstance(s.get("MATERIALS"), list))
+check("lesson exists up-front", s["LESSON"] is not None)
 
 # 5. guide -> routed lesson
 r = client.post("/api/guide", json={"message": "I don't get how JWT auth works"})
