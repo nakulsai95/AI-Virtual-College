@@ -104,6 +104,28 @@ class GradeOut(BaseModel):
     using_mock: bool
 
 
+# ---- Guide / channels / exams / budget ---------------------------------
+
+class GuideIn(BaseModel):
+    message: str
+
+
+class ChannelMessageIn(BaseModel):
+    text: str
+
+
+class ExamGenerateIn(BaseModel):
+    module_id: str
+
+
+class ExamSubmitIn(BaseModel):
+    answers: list[str] = Field(default_factory=list)
+
+
+class BudgetIn(BaseModel):
+    cap: float
+
+
 # ---- Sandbox ----------------------------------------------------------
 
 class SandboxIn(BaseModel):

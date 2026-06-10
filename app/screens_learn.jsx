@@ -67,8 +67,8 @@ function Dashboard({ terms, nav, data }){
           <div className="card next-card">
             <div className="eyebrow" style={{marginBottom:12}}>Up next</div>
             <div className="row" style={{gap:12}}>
-              <Avatar name="Mei" hue="#f5a623" size={40} sq />
-              <div><b style={{fontFamily:'var(--font-d)',fontSize:15}}>{data.LESSON.title}</b><div className="faint" style={{fontSize:12,fontFamily:'var(--font-m)'}}>{terms.professor} Mei · {data.LESSON.read}</div></div>
+              <Avatar name={data.LESSON.author} hue="#f5a623" size={40} sq />
+              <div><b style={{fontFamily:'var(--font-d)',fontSize:15}}>{data.LESSON.title}</b><div className="faint" style={{fontSize:12,fontFamily:'var(--font-m)'}}>{terms.professor} {data.LESSON.author} · {data.LESSON.read}</div></div>
             </div>
             <p className="muted" style={{fontSize:13,margin:'13px 0 16px'}}>{data.LESSON.intro.slice(0,110)}…</p>
             <button className="btn primary" style={{width:'100%',justifyContent:'center'}} onClick={()=>nav('lesson')}>Read the lesson →</button>
@@ -148,6 +148,17 @@ function CurriculumScreen({ terms, nav, data }){
 }
 
 /* ---------- My Board (kanban) ---------- */
+/* Open a task's lesson — fetched live by id when the backend authored it. */
+function openTask(t, nav){
+  if(t.type!=='lesson') return;
+  if(t.lesson_id && window.AULA_API && window.AULA_LIVE){
+    window.AULA_API.getLesson(t.lesson_id)
+      .then(r=>nav('lesson', r.lesson))
+      .catch(()=>nav('lesson'));
+    return;
+  }
+  nav('lesson');
+}
 function MyBoard({ terms, nav, data }){
   const cols = [
     { key:'lessons', label:'Lessons' }, { key:'doing', label:'Doing' },
@@ -165,7 +176,7 @@ function MyBoard({ terms, nav, data }){
             <div className="kan-head"><span>{c.label}</span><span className="kan-n">{data.KANBAN[c.key].length}</span></div>
             <div className="kan-cards">
               {data.KANBAN[c.key].map(t=>(
-                <div key={t.id} className={"kan-card"+(t.type==='lesson'?' lesson':'')} onClick={()=>t.type==='lesson'&&nav('lesson')}>
+                <div key={t.id} className={"kan-card"+(t.type==='lesson'?' lesson':'')} onClick={()=>openTask(t,nav)}>
                   <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
                     <span className={"badge "+(t.good===true?'mint':t.good===false?'coral':'')}>{t.type}</span>
                     {t.tool && <span className="badge gold mono">tool</span>}
@@ -183,8 +194,8 @@ function MyBoard({ terms, nav, data }){
 }
 
 /* ---------- Lesson (blog reader) ---------- */
-function LessonScreen({ terms, nav, data }){
-  const L = data.LESSON;
+function LessonScreen({ terms, nav, data, lessonOpen }){
+  const L = (lessonOpen && typeof lessonOpen==='object' && lessonOpen.title) ? lessonOpen : data.LESSON;
   const [ans,setAns] = useStateL('');
   const [sent,setSent] = useStateL(false);
   const [grade,setGrade] = useStateL(null);   // real Examiner result
@@ -202,7 +213,7 @@ function LessonScreen({ terms, nav, data }){
         .then(r=>{ setRunning(false);
           const txt = [(r.stdout||'').replace(/\s+$/,''), r.stderr?('\u2014 '+r.stderr.replace(/\s+$/,'')):''].filter(Boolean).join('\n');
           setOut(txt || (r.ok?'(ran \u2014 no output)':'(error)')); })
-        .catch(()=>{ setRunning(false); setOut('Sandbox offline \u2014 start the backend (cd backend && ./run.sh) to run code for real.'); });
+        .catch(()=>{ setRunning(false); setOut('Sandbox offline \u2014 start the backend (backend\\run.bat) to run code for real.'); });
       return;
     }
     setTimeout(()=>{ setRunning(false); setOut("{'sub': 1024, 'name': 'Alex', 'exp': 1735689600}\n\n\u2713 demo output \u2014 connect the backend to run for real."); }, 600);
@@ -211,7 +222,7 @@ function LessonScreen({ terms, nav, data }){
     if(window.AULA_API){
       setGrading(true);
       window.AULA_API.grade({ kind:'probe', question:L.probe.q, answer:ans, bar:70, subject:L.subject, professor:L.author })
-        .then(r=>{ setGrade(r); setGrading(false); setSent(true); })
+        .then(r=>{ setGrade(r); setGrading(false); setSent(true); window.AULA_API.hydrate(); })
         .catch(()=>{ setGrading(false); setSent(true); });
       return;
     }
@@ -289,24 +300,52 @@ function LessonScreen({ terms, nav, data }){
 
 /* ---------- Personal Guide (chat) ---------- */
 function GuideScreen({ terms, nav, data }){
-  const [msgs,setMsgs] = useStateL(data.GUIDE_THREAD);
+  const [msgs,setMsgs] = useStateL(()=> window.AULA_LIVE
+    ? [{who:'guide',name:terms.guide,text:'Stuck on anything? Ask me and I’ll bring the right teacher in.'}]
+    : data.GUIDE_THREAD);
   const [val,setVal] = useStateL('');
+  const [busy,setBusy] = useStateL(false);
   const endRef = useRefL(null);
   useEffectL(()=>{ endRef.current && endRef.current.scrollTo(0, endRef.current.scrollHeight); },[msgs]);
   function send(){
-    if(!val.trim()) return;
+    if(!val.trim() || busy) return;
     const q = val.trim(); setVal('');
     setMsgs(m=>[...m,{who:'user',text:q}]);
+
+    // Live: the real Guide agent routes the question; the routed Professor
+    // actually authors a lesson and drops it on your board + library.
+    if(window.AULA_API && window.AULA_LIVE){
+      setBusy(true);
+      setMsgs(m=>[...m,{who:'system',text:'Guide is thinking…'}]);
+      window.AULA_API.guideAsk(q)
+        .then(out=>{
+          data.LESSON = out.lesson;  // dashboard "Continue" + board card open it
+          setMsgs(m=>[...m.filter(x=>x.text!=='Guide is thinking…'),
+            {who:'guide',name:terms.guide,text:out.reply},
+            {who:'route',text:'Routed · '+out.route.professor+' · '+out.route.subject},
+            {who:'prof',name:out.lesson.author,hue:'#f5a623',text:'Done — I wrote “'+out.lesson.title+'”. Open it from your board or dashboard.'},
+            {who:'system',text:'New lesson added · '+out.lesson.title}
+          ]);
+          window.AULA_API.hydrate();
+        })
+        .catch(()=>{
+          setMsgs(m=>[...m.filter(x=>x.text!=='Guide is thinking…'),
+            {who:'guide',name:terms.guide,text:'I hit a snag reaching the faculty — try again in a moment.'}]);
+        })
+        .finally(()=>setBusy(false));
+      return;
+    }
+
+    // Demo fallback (no backend).
     const subj = (data.SUBJECTS && data.SUBJECTS[0]) || {};
     const subject = subj.title || 'your subject';
     const prof = subj.profName || terms.professor;
     setTimeout(()=>setMsgs(m=>[...m,{who:'guide',name:terms.guide,text:'Good one — bringing in '+prof+' for '+subject+'. They’ll write you a lesson.'}]),400);
     setTimeout(()=>setMsgs(m=>[...m,{who:'route',text:'Routed · '+terms.professor+' · '+subject}]),900);
-    // The Professor actually authors a lesson and drops it on your board.
     if(window.AULA_API){
       window.AULA_API.lesson(subject, q, prof, (subj.sandboxes && subj.sandboxes[0]) || 'python')
         .then(out=>{
-          data.LESSON = out.lesson;  // dashboard "Continue" + board card open it
+          data.LESSON = out.lesson;
           setMsgs(m=>[...m,
             {who:'prof',name:out.lesson.author,hue:'#f5a623',text:'Done — I wrote “'+out.lesson.title+'”. Open it from your board or dashboard.'},
             {who:'system',text:'New lesson added · '+out.lesson.title}
@@ -350,13 +389,31 @@ function Bubble({ m, terms }){
 /* ---------- Channel (Slack-style) ---------- */
 function ChannelScreen({ terms, data }){
   const [active,setActive] = useStateL(data.CHANNELS[0].id);
-  const ch = data.CHANNELS.find(c=>c.id===active);
+  const [draft,setDraft] = useStateL('');
+  const [busy,setBusy] = useStateL(false);
+  const bodyRef = useRefL(null);
+  const ch = data.CHANNELS.find(c=>c.id===active) || data.CHANNELS[0];
+  useEffectL(()=>{ bodyRef.current && bodyRef.current.scrollTo(0, bodyRef.current.scrollHeight); },[ch && ch.messages.length, active]);
+  function pick(c){
+    setActive(c.id);
+    if(window.AULA_LIVE && c.unread){ c.unread = 0; window.AULA_API.channelRead(c.id).catch(()=>{}); }
+  }
+  function send(){
+    const t = draft.trim();
+    if(!t || busy || !(window.AULA_API && window.AULA_LIVE)) return;
+    setBusy(true); setDraft('');
+    ch.messages.push({who:data.STUDENT.name,role:'me',text:t,t:'now'});
+    window.AULA_API.channelSend(ch.id, t)
+      .then(()=>window.AULA_API.hydrate())
+      .catch(()=>{ ch.messages.push({who:'system',role:'system',text:'Could not send — backend unreachable.',t:'now'}); })
+      .finally(()=>setBusy(false));
+  }
   return (
     <div className="channel">
       <div className="ch-list">
         <div className="ch-list-h mono">Channels</div>
         {data.CHANNELS.map(c=>(
-          <button key={c.id} className={"ch-item"+(c.id===active?' on':'')} onClick={()=>setActive(c.id)}>
+          <button key={c.id} className={"ch-item"+(c.id===active?' on':'')} onClick={()=>pick(c)}>
             {c.kind==='room'
               ? <span className="ch-hash">#</span>
               : <Avatar name={c.name} hue={c.hue||'#9b6cff'} size={26} />}
@@ -372,7 +429,7 @@ function ChannelScreen({ terms, data }){
           <div style={{flex:1}}/>
           <span className="badge accent mono">⌁ slack-mcp</span>
         </div>
-        <div className="ch-body">
+        <div className="ch-body" ref={bodyRef}>
           {ch.kind==='room' && <div className="b-system" style={{marginBottom:10}}>Your faculty coordinate here. You can read along.</div>}
           {ch.messages.map((m,i)=>(
             <div key={i} className={"ch-msg"+(m.role==='me'?' me':'')}>
@@ -385,8 +442,12 @@ function ChannelScreen({ terms, data }){
           ))}
         </div>
         <div className="chat-input">
-          <input placeholder={ch.kind==='room'?'Reply in '+ch.name+'…':'Message '+ch.name+'…'} />
-          <button className="btn primary">Send</button>
+          <input value={draft} onChange={e=>setDraft(e.target.value)}
+                 onKeyDown={e=>e.key==='Enter'&&send()}
+                 placeholder={window.AULA_LIVE
+                   ? (ch.kind==='room'?'Reply in '+ch.name+'…':'Message '+ch.name+'…')
+                   : 'Connect the backend to message your faculty…'} />
+          <button className="btn primary" onClick={send} disabled={busy||!window.AULA_LIVE}>{busy?'…':'Send'}</button>
         </div>
       </div>
     </div>
@@ -415,7 +476,8 @@ function LibraryScreen({ terms, nav, data }){
       </div>
       <div className="lib-grid">
         {items.map(l=>(
-          <div key={l.id} className={"lib-card"+(l.state==='locked'?' locked':'')} onClick={()=>l.state!=='locked'&&nav('lesson')}>
+          <div key={l.id} className={"lib-card"+(l.state==='locked'?' locked':'')}
+               onClick={()=>l.state!=='locked'&&openTask({type:'lesson',lesson_id:(window.AULA_LIVE?l.id:null)},nav)}>
             <div className="row" style={{justifyContent:'space-between',marginBottom:12}}>
               <span className="badge mono">{l.tag}</span>
               {l.state==='new' && <span className="badge accent">new</span>}
@@ -440,7 +502,7 @@ function levelMeta(l){
 }
 function ProgressScreen({ terms, nav, data }){
   const flat = data.MASTERY.flatMap(s=>s.concepts.map(c=>({...c, subject:s.subject, hue:s.hue})));
-  const overall = Math.round(flat.reduce((a,c)=>a+c.level,0)/flat.length*100);
+  const overall = flat.length ? Math.round(flat.reduce((a,c)=>a+c.level,0)/flat.length*100) : 0;
   const strengths = flat.filter(c=>c.level>=0.8).sort((a,b)=>b.level-a.level).slice(0,3);
   const engaged = flat.filter(c=>c.seen!=='not yet'&&c.seen!=='locked');
   const focus = engaged.sort((a,b)=>a.level-b.level).slice(0,3);

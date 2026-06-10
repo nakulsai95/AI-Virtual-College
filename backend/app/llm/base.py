@@ -28,6 +28,9 @@ class LLMProvider(ABC):
         self.api_key = api_key or ""
         self.model = model or self.default_model
         self.base_url = base_url or ""
+        #: Token counts of the most recent complete() call, when the vendor
+        #: reports them: {"input_tokens": int, "output_tokens": int}.
+        self.last_usage: dict | None = None
 
     @property
     def default_model(self) -> str:  # overridden per provider

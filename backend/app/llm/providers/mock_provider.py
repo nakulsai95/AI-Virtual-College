@@ -26,10 +26,18 @@ class MockProvider(LLMProvider):
         user = " ".join(m["content"] for m in messages if m["role"] == "user")
         # Match the role's identity line, not stray mentions (the Principal's
         # prompt also contains the word "professor").
+        if "design an exam" in sys_l:
+            return _demo_exam_json(user)
         if "you are the examiner" in sys_l:
             return _demo_grade_json(_answer_of(messages))
         if "you are a professor" in sys_l:
             return _demo_lesson_json(user)
+        if "you are the personal guide" in sys_l:
+            return _demo_guide_json(user)
+        if "you are the provost" in sys_l:
+            return _demo_provost_json()
+        if "you are the counselor" in sys_l:
+            return _demo_counselor_json(user)
         return _demo_curriculum_json(_clean_goal(user))
 
 
@@ -68,6 +76,53 @@ def _demo_lesson_json(prompt: str) -> str:
         "probe": {"q": f"In your own words, what problem does {topic} solve?",
                   "hint": "Think about what would break without it."},
     })
+
+
+def _demo_exam_json(prompt: str) -> str:
+    import re
+    m = re.search(r"module:\s*(.+)", prompt, re.IGNORECASE)
+    topic = (m.group(1).strip() if m else "this module").splitlines()[0]
+    return json.dumps({"questions": [
+        {"q": f"In your own words, what problem does “{topic}” solve?",
+         "hint": "Think about what would break without it."},
+        {"q": f"Walk through how you would apply {topic} to a small real project.",
+         "hint": "Name the steps in order."},
+        {"q": f"What is the most common mistake people make with {topic}, and how do you avoid it?",
+         "hint": "Think about edge cases."},
+        {"q": f"How would you explain {topic} to a beginner in two sentences?",
+         "hint": "Plain words beat jargon."},
+    ]})
+
+
+def _demo_guide_json(prompt: str) -> str:
+    import re
+    m = re.search(r"question:\s*(.+)", prompt, re.IGNORECASE | re.DOTALL)
+    q = (m.group(1).strip() if m else prompt.strip())[:80]
+    return json.dumps({
+        "reply": f"Good question — that belongs with one of your professors. "
+                 f"Bringing them in to write you a short lesson on “{q}”.",
+        "subject": "", "topic": q,
+    })
+
+
+def _demo_provost_json() -> str:
+    return json.dumps({
+        "methodology": {
+            "pacing": "slow",
+            "sequence": "examples → theory",
+            "modality": "blog + worked examples",
+            "examples": "high",
+            "probe": "after-practice",
+        },
+        "note": "Demo rewrite — worked examples now come before theory.",
+    })
+
+
+def _demo_counselor_json(prompt: str) -> str:
+    import re
+    m = re.search(r"weakest concept:\s*(.+)", prompt, re.IGNORECASE)
+    concept = (m.group(1).strip() if m else "your weakest concept").splitlines()[0]
+    return json.dumps({"nudge": f"One more rep on {concept} and it sticks — try it today."})
 
 
 def _clean_goal(text: str) -> str:

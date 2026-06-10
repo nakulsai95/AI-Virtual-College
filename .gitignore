@@ -7,6 +7,10 @@ __pycache__/
 # Backend: persisted connector config holds the user's API key — never commit
 backend/.connectors.json
 
+# Backend: the local college database (curriculum, progress, usage)
+backend/aula.db
+backend/aula.db-*
+
 # Build output
 dist/
 build/
