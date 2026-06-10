@@ -68,15 +68,27 @@ function App(){
   const [enrolled, setEnrolled] = useStateA(localStorage.getItem('aula_enrolled')==='1');
   const [active, setActive] = useStateA('home');
   const [lessonOpen, setLessonOpen] = useStateA(null);
+  const [,setTick] = useStateA(0);
 
   useEffectA(()=>{ window.applyThemeVars(themeKey); localStorage.setItem('aula_app_theme',themeKey); },[themeKey]);
+
+  // Re-render whenever the live backend state lands (hydration / after actions).
+  // Enrolment follows the flag both ways — the backend is the source of truth.
+  useEffectA(()=>{
+    const onData = ()=>{ setTick(t=>t+1); setEnrolled(localStorage.getItem('aula_enrolled')==='1'); };
+    window.addEventListener('aula:data', onData);
+    return ()=>window.removeEventListener('aula:data', onData);
+  },[]);
 
   const terms = window.AULA_THEMES[themeKey].terms;
   const mark = window.AULA_THEMES[themeKey].mark;
   const setTheme = (k)=>setThemeKey(k);
   const themeSwitch = <ThemeSwitch themeKey={themeKey} setTheme={setTheme} />;
 
-  function enrol(){ setEnrolled(true); localStorage.setItem('aula_enrolled','1'); setActive('home'); }
+  function enrol(){
+    setEnrolled(true); localStorage.setItem('aula_enrolled','1'); setActive('home');
+    if(window.AULA_API) window.AULA_API.hydrate();  // pull the persisted college
+  }
   function nav(key, payload){ if(key==='lesson'){ setLessonOpen(payload||true); } setActive(key); }
 
   if(!enrolled){
@@ -100,7 +112,8 @@ function App(){
             <div key={g.group}>
               <div className="sb-group">{g.group}</div>
               {g.items.map(it=>{
-                const unread = it.key==='channel' ? 2 : 0;
+                const unread = it.key==='channel'
+                  ? (window.AULA_DATA.CHANNELS||[]).reduce((a,c)=>a+(c.unread||0),0) : 0;
                 return (
                   <button key={it.key} className={"nav-item"+(active===it.key?' active':'')} onClick={()=>nav(it.key)}>
                     <span className="ico"><Icon name={it.icon} /></span>

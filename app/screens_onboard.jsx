@@ -13,15 +13,21 @@ function Onboarding({ terms, mark, onEnroll, themeSwitch }){
   const [level, setLevel] = useStateO('intermediate');
 
   // Kick off the real Principal (backend) when the learner hits "Build".
-  // The hiring animation plays while the curriculum is generated; if the
-  // backend is unavailable, the app keeps its built-in demo plan.
+  // The hiring animation plays while the curriculum is generated. If the
+  // backend is OFF entirely, the demo plan stays; but if a real model is
+  // connected and fails, the error is surfaced — never a silent demo.
   function build(){
     const g = goal.trim() || 'Become job-ready in backend Python';
     setPhase('hiring');
     if(window.AULA_API){
       window.AULA_API.onboard(g, level)
         .then(out=>{ window.AULA_ONBOARD = out; window.applyCurriculum && window.applyCurriculum(out.curriculum); })
-        .catch(()=>{ /* offline / no backend — demo data stays */ });
+        .catch(err=>{
+          if(err instanceof TypeError){ return; /* backend offline — demo plan stays */ }
+          alert('The Principal hit a problem:\n\n' + (err.message || err) +
+                '\n\nCheck your key/credits in Connections, then try again.');
+          setPhase('intake');
+        });
     }
   }
 
@@ -37,7 +43,10 @@ function Onboarding({ terms, mark, onEnroll, themeSwitch }){
       </div>
       {phase==='intake' && <Intake {...{goal,setGoal,level,setLevel,terms,onBuild:build}} />}
       {phase==='hiring' && <Hiring {...{terms,goal,onDone:()=>setPhase('review')}} />}
-      {phase==='review' && <Review {...{terms,goal,level,onEnroll,onBack:()=>setPhase('hiring')}} />}
+      {phase==='review' && <Review {...{terms,goal,level,onEnroll,onRevise:()=>{
+        if(window.AULA_API) window.AULA_API.resetCollege().catch(()=>{});
+        setPhase('intake');
+      }}} />}
     </div>
   );
 }
@@ -125,17 +134,18 @@ function Hiring({ terms, goal, onDone }){
   );
 }
 
-function Review({ terms, goal, level, onEnroll, onBack }){
+function Review({ terms, goal, level, onEnroll, onRevise }){
   const D = window.AULA_DATA;
-  const [changed, setChanged] = useStateO(false);
-  const totalBudget = D.FACULTY.reduce((a,f)=>a+f.budget.cap,0);
+  const [cap, setCap] = useStateO(null);
+  useEffectO(()=>{ if(window.AULA_API) window.AULA_API.usage().then(u=>setCap(u.cap)).catch(()=>{}); },[]);
+  const totalBudget = D.FACULTY.reduce((a,f)=>a+(f.budget?f.budget.cap:0),0);
   return (
     <div className="review">
       <div className="review-head">
         <div>
           <div className="eyebrow" style={{marginBottom:10}}>Proposed {terms.semester.toLowerCase()} · review before you enrol</div>
           <h2>Your {terms.college.replace(/^The /,'')}, staffed.</h2>
-          <p className="muted" style={{marginTop:8,maxWidth:'52ch'}}>For “{goal.trim()||'Become job-ready in backend Python'}” · {level}. {changed && <span style={{color:'var(--accent)'}}>Change requested — the {terms.principal} will revise.</span>}</p>
+          <p className="muted" style={{marginTop:8,maxWidth:'52ch'}}>For “{goal.trim()||'Become job-ready in backend Python'}” · {level}.</p>
         </div>
         <div className="stat">
           <div className="s"><b>{D.STUDENT.weeks}</b><span>WEEKS</span></div>
@@ -164,7 +174,7 @@ function Review({ terms, goal, level, onEnroll, onBack }){
       <div className="card" style={{marginTop:6}}>
         <div className="row" style={{justifyContent:'space-between'}}>
           <div><div className="eyebrow" style={{marginBottom:4}}>Support staff</div><div className="muted" style={{fontSize:13}}>Hired alongside your professors</div></div>
-          <span className="badge gold mono">budget ${totalBudget}/mo cap</span>
+          <span className="badge gold mono">{cap!=null ? 'credits $'+cap.toFixed(2)+' cap' : 'budget $'+totalBudget+'/mo cap'}</span>
         </div>
         <div className="faculty-strip">
           {D.FACULTY.filter(f=>f.role!=='professor').map(f=>
@@ -173,7 +183,7 @@ function Review({ terms, goal, level, onEnroll, onBack }){
       </div>
 
       <div className="review-foot">
-        <button className="btn ghost" onClick={()=>setChanged(true)}>Request changes</button>
+        <button className="btn ghost" onClick={onRevise}>Request changes</button>
         <button className="btn primary" onClick={onEnroll}>Enrol — start learning →</button>
       </div>
     </div>

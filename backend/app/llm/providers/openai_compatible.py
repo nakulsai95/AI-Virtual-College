@@ -1,8 +1,7 @@
-"""OpenAI-compatible connectors: OpenAI (GPT), Groq, and Ollama.
+"""OpenAI-compatible connectors: OpenAI (GPT), Groq, Ollama, Mistral, Gemini.
 
-Groq and Ollama both speak the OpenAI Chat Completions API, so a single
-implementation drives all three — only the base URL, key requirement, and
-default model differ.
+All five speak the OpenAI Chat Completions API, so a single implementation
+drives them — only the base URL, key requirement, and default model differ.
 """
 from __future__ import annotations
 
@@ -55,6 +54,13 @@ class _OpenAICompatible(LLMProvider):
             else:
                 raise LLMError(str(e)) from e
 
+        usage = getattr(resp, "usage", None)
+        if usage is not None:
+            self.last_usage = {
+                "input_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+                "output_tokens": getattr(usage, "completion_tokens", 0) or 0,
+            }
+
         return (resp.choices[0].message.content or "").strip()
 
 
@@ -86,3 +92,23 @@ class OllamaProvider(_OpenAICompatible):
     @property
     def default_model(self) -> str:
         return "llama3.1"
+
+
+class MistralProvider(_OpenAICompatible):
+    id = "mistral"
+    name = "Mistral"
+    api_base = "https://api.mistral.ai/v1"
+
+    @property
+    def default_model(self) -> str:
+        return "mistral-large-latest"
+
+
+class GeminiProvider(_OpenAICompatible):
+    id = "gemini"
+    name = "Gemini (Google)"
+    api_base = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+    @property
+    def default_model(self) -> str:
+        return "gemini-2.5-flash"

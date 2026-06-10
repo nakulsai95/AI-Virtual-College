@@ -36,5 +36,12 @@ class AnthropicProvider(LLMProvider):
         except anthropic.APIError as e:
             raise LLMError(getattr(e, "message", None) or str(e)) from e
 
+        usage = getattr(resp, "usage", None)
+        if usage is not None:
+            self.last_usage = {
+                "input_tokens": getattr(usage, "input_tokens", 0) or 0,
+                "output_tokens": getattr(usage, "output_tokens", 0) or 0,
+            }
+
         parts = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
         return "".join(parts).strip()

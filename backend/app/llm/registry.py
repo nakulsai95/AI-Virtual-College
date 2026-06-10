@@ -9,7 +9,9 @@ from .base import LLMProvider
 from .providers.anthropic_provider import AnthropicProvider
 from .providers.mock_provider import MockProvider
 from .providers.openai_compatible import (
+    GeminiProvider,
     GroqProvider,
+    MistralProvider,
     OllamaProvider,
     OpenAIProvider,
 )
@@ -51,6 +53,32 @@ PROVIDER_SPECS: list[dict] = [
         "key_label": "GROQ_API_KEY",
     },
     {
+        "id": "gemini",
+        "name": "Gemini (Google)",
+        "tier": "long-context",
+        "requires_key": True,
+        "default_model": "gemini-2.5-flash",
+        "models": ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
+        "key_url": "https://aistudio.google.com/apikey",
+        "key_label": "GEMINI_API_KEY",
+    },
+    {
+        "id": "mistral",
+        "name": "Mistral",
+        "tier": "fast & open",
+        "requires_key": True,
+        "default_model": "mistral-large-latest",
+        "models": [
+            "mistral-large-latest",
+            "mistral-medium-latest",
+            "mistral-small-latest",
+            "codestral-latest",
+            "open-mistral-nemo",
+        ],
+        "key_url": "https://console.mistral.ai/api-keys",
+        "key_label": "MISTRAL_API_KEY",
+    },
+    {
         "id": "ollama",
         "name": "Ollama (local)",
         "tier": "private · on-device",
@@ -66,6 +94,8 @@ _PROVIDER_CLASSES: dict[str, type[LLMProvider]] = {
     "claude": AnthropicProvider,
     "openai": OpenAIProvider,
     "groq": GroqProvider,
+    "gemini": GeminiProvider,
+    "mistral": MistralProvider,
     "ollama": OllamaProvider,
     "mock": MockProvider,
 }

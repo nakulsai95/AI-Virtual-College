@@ -52,17 +52,30 @@ def _limits():  # pragma: no cover - POSIX preexec, exercised at runtime
         pass
 
 
+def _child_env() -> dict:
+    """Minimal environment for the child. On Windows, SystemRoot is required
+    for the CPython runtime itself (crypto/socket init) — strip everything else."""
+    if os.name == "nt":
+        return {
+            "SYSTEMROOT": os.environ.get("SYSTEMROOT", r"C:\Windows"),
+            "TEMP": os.environ.get("TEMP", ""),
+            "TMP": os.environ.get("TMP", ""),
+            "PYTHONIOENCODING": "utf-8",
+        }
+    return {"PATH": "/usr/bin:/bin", "PYTHONIOENCODING": "utf-8"}
+
+
 def _run_python(code: str) -> dict:
     start = time.monotonic()
     with tempfile.TemporaryDirectory() as tmp:
         path = os.path.join(tmp, "main.py")
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(code)
         try:
             proc = subprocess.run(
                 [sys.executable, "-I", path],
                 capture_output=True, text=True, timeout=_TIMEOUT_S,
-                cwd=tmp, env={"PATH": "/usr/bin:/bin", "PYTHONIOENCODING": "utf-8"},
+                cwd=tmp, env=_child_env(),
                 preexec_fn=_limits if os.name == "posix" else None,
             )
         except subprocess.TimeoutExpired:

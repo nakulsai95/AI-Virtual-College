@@ -2,17 +2,95 @@
 const { useState: useStateAd } = React;
 
 /* ---------- Exams & Results ---------- */
+function TakeExam({ terms, data }){
+  const { useState } = React;
+  const [exam,setExam] = useState(null);
+  const [answers,setAnswers] = useState([]);
+  const [busy,setBusy] = useState(false);
+  const [result,setResult] = useState(null);
+  const next = data.NEXT_EXAM;
+  if(!window.AULA_LIVE || !next) return null;
+
+  function generate(){
+    setBusy(true);
+    window.AULA_API.examGenerate(next.module_id)
+      .then(r=>{ setExam(r.exam); setAnswers(r.exam.questions.map(()=>'')); })
+      .catch(()=>{})
+      .finally(()=>setBusy(false));
+  }
+  function submit(){
+    setBusy(true);
+    window.AULA_API.examSubmit(exam.id, answers)
+      .then(r=>{ setResult(r); window.AULA_API.hydrate(); })
+      .catch(()=>{})
+      .finally(()=>setBusy(false));
+  }
+
+  if(result){
+    return (
+      <div className={"card "+(result.passed?'mint-note':'coral-note')} style={{marginBottom:18}}>
+        <div className="row" style={{gap:10,flexWrap:'wrap',marginBottom:8}}>
+          <b style={{fontFamily:'var(--font-d)',fontSize:15}}>{exam.title} — graded</b>
+          <span className={"badge "+(result.passed?'mint':'coral')}>{result.score}% · {result.passed?'passed':'below bar'}</span>
+          {result.reward && <span className={"badge "+(result.reward.delta>=0?'mint':'coral')+" mono"}>{result.reward.delta>=0?'+':''}{result.reward.delta} to {result.reward.professor && result.reward.professor.name}</span>}
+          {result.methodology_changed && <span className="badge accent mono">Provost rewrote methodology</span>}
+        </div>
+        <p className="muted" style={{fontSize:13.5}}>{result.feedback}</p>
+        <p className="faint mono" style={{fontSize:11,marginTop:8}}>{result.passed?'Module complete — the next one is unlocked.':'No penalty to you — your teacher took the hit. Revise and retake when ready.'}</p>
+        <button className="btn ghost" style={{marginTop:12}} onClick={()=>{setResult(null);setExam(null);}}>Done</button>
+      </div>
+    );
+  }
+  if(exam){
+    return (
+      <div className="card accent-note" style={{marginBottom:18}}>
+        <div className="row" style={{justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:8}}>
+          <b style={{fontFamily:'var(--font-d)',fontSize:15}}>{exam.title} · {exam.type}</b>
+          <span className="badge accent mono">bar {exam.bar} · graded blind</span>
+        </div>
+        {exam.questions.map((q,i)=>(
+          <div key={i} style={{marginBottom:14}}>
+            <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:14,marginBottom:6}}>{i+1}. {q.q}</div>
+            <textarea className="probe-input" rows={2} value={answers[i]||''}
+                      onChange={e=>setAnswers(a=>a.map((v,j)=>j===i?e.target.value:v))}
+                      placeholder="Type your answer…" />
+            {q.hint && <div className="faint mono" style={{fontSize:11,marginTop:4}}>Hint: {q.hint}</div>}
+          </div>
+        ))}
+        <button className="btn primary" onClick={submit} disabled={busy || answers.every(a=>!a.trim())}>
+          {busy?'The Examiner is grading…':'Submit '+terms.exam.toLowerCase()}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="card accent-note" style={{marginBottom:18}}>
+      <div className="row" style={{gap:14,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:220}}>
+          <div className="eyebrow" style={{marginBottom:6}}>Next {terms.exam.toLowerCase()}</div>
+          <b style={{fontFamily:'var(--font-d)',fontSize:15.5}}>{next.title}</b>
+          <div className="faint mono" style={{fontSize:11,marginTop:4}}>{next.subject} · the Examiner writes it fresh for you</div>
+        </div>
+        <button className="btn primary" onClick={generate} disabled={busy}>{busy?'Writing questions…':'Take it now →'}</button>
+      </div>
+    </div>
+  );
+}
+
 function ExamsScreen({ terms, data }){
   const passed = data.EXAMS.filter(e=>e.status==='passed').length;
   const total = data.EXAMS.filter(e=>e.status!=='upcoming').length;
+  const lastFail = [...data.EXAMS].reverse().find(e=>e.status==='failed');
+  const failProf = lastFail && (data.SUBJECTS.find(s=>s.title===lastFail.subject)||{}).profName;
   return (
     <div className="screen-pad">
       <div className="row" style={{justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
-        <div><h1 style={{fontSize:26}}>{terms.exam}s & Results</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Graded blind by Rei · pass the bar to advance</p></div>
+        <div><h1 style={{fontSize:26}}>{terms.exam}s & Results</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Graded blind by the Examiner · pass the bar to advance</p></div>
         <div className="row" style={{gap:18}}>
           <div style={{textAlign:'right'}}><div style={{fontFamily:'var(--font-d)',fontWeight:700,fontSize:22}}>{passed}/{total}</div><div className="faint mono" style={{fontSize:11}}>PASSED</div></div>
         </div>
       </div>
+      <TakeExam terms={terms} data={data} />
       <div className="col" style={{gap:10}}>
         {data.EXAMS.map(e=>(
           <div key={e.id} className={"exam-row"+(e.status==='failed'?' failed':'')}>
@@ -38,16 +116,17 @@ function ExamsScreen({ terms, data }){
           </div>
         ))}
       </div>
-      <div className="card coral-note" style={{marginTop:18}}>
-        <div className="row" style={{gap:12,alignItems:'flex-start'}}>
-          <span className="dot" style={{background:'var(--coral)',marginTop:6}}/>
-          <div>
-            <b style={{fontFamily:'var(--font-d)',fontSize:14.5}}>SQL & queries — failed at 58% (bar 65)</b>
-            <p className="muted" style={{fontSize:13.5,marginTop:6}}>You re-enrol this unit — <b style={{color:'var(--ink)'}}>no penalty to you</b>. {terms.professor} Kenji took the −10 reward; the Provost rewrote his methodology (v3 → v4) to teach JOINs with worked examples first. Try again when ready.</p>
-            <button className="btn primary" style={{marginTop:12}}>Re-enrol the unit →</button>
+      {lastFail && (
+        <div className="card coral-note" style={{marginTop:18}}>
+          <div className="row" style={{gap:12,alignItems:'flex-start'}}>
+            <span className="dot" style={{background:'var(--coral)',marginTop:6}}/>
+            <div>
+              <b style={{fontFamily:'var(--font-d)',fontSize:14.5}}>{lastFail.title} — failed at {lastFail.score}% (bar {lastFail.bar})</b>
+              <p className="muted" style={{fontSize:13.5,marginTop:6}}>You re-enrol this unit — <b style={{color:'var(--ink)'}}>no penalty to you</b>. {failProf?terms.professor+' '+failProf+' took the negative reward':'Your teacher took the negative reward'}; if their grade slipped, the Provost rewrote how they teach. Try again from "Take it now" above when ready.</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -56,17 +135,27 @@ function ExamsScreen({ terms, data }){
 function TeacherBoard({ terms, data }){
   const profs = data.FACULTY.filter(f=>f.role==='professor');
   const [pid,setPid] = useStateAd(profs[0].id);
-  const prof = profs.find(p=>p.id===pid);
-  const grade = data.GRADES.find(g=>g.id===pid);
+  const prof = profs.find(p=>p.id===pid) || profs[0];
+  const grade = data.GRADES.find(g=>g.id===prof.id) || data.GRADES[0]
+    || { letter:'—', score:78, trend:'flat', history:[78], note:'No signals yet.', version:1 };
+  const subjLessons = (data.LIBRARY||[]).filter(l=>l.subject===prof.subject).map(l=>l.title);
   const cols = [
-    { k:'Prep', cards:['Draft REST build brief','Outline testing unit'] },
-    { k:'Teaching', cards:['JWTs, end to end','Designing a resource'] },
-    { k:'Assessing', cards:['Grade REST routing'] },
-    { k:'Reviewing', cards:['Check Alex’s endpoint'] },
+    { k:'Prep', cards:['Plan next module','Refresh examples'] },
+    { k:'Teaching', cards: subjLessons.length?subjLessons.slice(0,3):['First lesson on request'] },
+    { k:'Assessing', cards:['Grade probes as they land'] },
+    { k:'Reviewing', cards:['Watch '+(data.STUDENT?data.STUDENT.name:'the learner')+'’s mastery'] },
   ];
-  const methodology = pid==='prof-db'
-    ? { v:4, pacing:'slow', seq:'examples → theory', modality:'blog + worked SQL', example:'high', probe:'after-practice', changed:true }
-    : { v:3, pacing:'normal', seq:'concept → practice', modality:'blog + diagrams', example:'medium', probe:'after-read', changed:false };
+  // Live methodology straight from the backend (the Provost rewrites it for real).
+  const gm = grade.methodology || {};
+  const methodology = {
+    v: grade.version || 1,
+    pacing: gm.pacing || 'normal',
+    seq: gm.sequence || 'concept → practice',
+    modality: gm.modality || 'blog + diagrams',
+    example: gm.examples || 'medium',
+    probe: gm.probe || 'after-read',
+    changed: (grade.version || 1) > 1,
+  };
   return (
     <div className="screen-pad wide">
       <div className="row" style={{justifyContent:'space-between',marginBottom:16,flexWrap:'wrap',gap:12}}>
@@ -105,7 +194,7 @@ function TeacherBoard({ terms, data }){
               <div className="meth-row"><span>examples</span><b>{methodology.example}</b></div>
               <div className="meth-row"><span>probe timing</span><b>{methodology.probe}</b></div>
             </div>
-            {methodology.changed && <p className="muted" style={{fontSize:12,marginTop:12}}>↳ Provost rewrote this after the mid-term fail — examples now come before theory.</p>}
+            {methodology.changed && <p className="muted" style={{fontSize:12,marginTop:12}}>↳ {grade.note || 'Provost rewrote this after a struggle.'}</p>}
           </div>
         </div>
       </div>
@@ -117,17 +206,16 @@ function TeacherBoard({ terms, data }){
 function FacultyGrades({ terms, data }){
   const { useState, useEffect } = React;
   const [live,setLive] = useState(null);
-  useEffect(()=>{ if(window.AULA_API) window.AULA_API.faculty().then(setLive).catch(()=>{}); },[]);
-  const grades = (live && live.professors && live.professors.length)
-    ? live.professors.map(p=>({ id:p.id, name:p.name, subject:p.subject, letter:p.letter, score:p.score, trend:p.trend, version:p.version, history:p.history, note:p.note }))
-    : data.GRADES;
+  useEffect(()=>{ if(window.AULA_API && !window.AULA_LIVE) window.AULA_API.faculty().then(setLive).catch(()=>{}); },[]);
+  const grades = window.AULA_LIVE ? data.GRADES
+    : (live && live.professors && live.professors.length) ? live.professors : data.GRADES;
   return (
     <div className="screen-pad">
       <h1 style={{fontSize:26}}>Faculty Grades</h1>
       <p className="muted" style={{fontSize:14,marginTop:4,marginBottom:20}}>Teachers are graded on whether <b style={{color:'var(--ink)'}}>you</b> learn. Reward history, last 10 signals.</p>
       <div className="grid" style={{gridTemplateColumns:'1fr 1fr'}}>
         {grades.map(g=>{
-          const hue = g.id==='prof-api'?'#f5a623':'#3b82f6';
+          const hue = g.hue || (g.id==='prof-api'?'#f5a623':'#3b82f6');
           return (
             <div key={g.id} className="card grade-card">
               <div className="row" style={{gap:12,marginBottom:14}}>
@@ -157,20 +245,22 @@ function FacultyGrades({ terms, data }){
 function CommandCenter({ terms, data }){
   const { useState, useEffect } = React;
   const [live,setLive] = useState(null);
-  useEffect(()=>{ if(window.AULA_API) window.AULA_API.faculty().then(setLive).catch(()=>{}); },[]);
-  const feed = (live && live.feed && live.feed.length) ? live.feed : data.FEED;
+  useEffect(()=>{ if(window.AULA_API && !window.AULA_LIVE) window.AULA_API.faculty().then(setLive).catch(()=>{}); },[]);
+  const feed = window.AULA_LIVE ? data.FEED
+    : (live && live.feed && live.feed.length) ? live.feed : data.FEED;
   const gradeFor = (f)=>{
     if(live && live.professors){ const p=live.professors.find(p=>p.name===f.name||p.id===f.id); if(p) return {letter:p.letter,score:p.score}; }
     return f.grade;
   };
-  const totalUsed = data.FACULTY.reduce((a,f)=>a+(f.budget?f.budget.used:0),0);
-  const totalCap = data.FACULTY.reduce((a,f)=>a+(f.budget?f.budget.cap:0),0);
+  const fmt$ = (v)=> window.AULA_LIVE ? '$'+(+v).toFixed(2) : '$'+v;
+  const totalUsed = data.USAGE ? data.USAGE.used : data.FACULTY.reduce((a,f)=>a+(f.budget?f.budget.used:0),0);
+  const totalCap = data.USAGE ? data.USAGE.cap : data.FACULTY.reduce((a,f)=>a+(f.budget?f.budget.cap:0),0);
   return (
     <div className="screen-pad wide">
       <div className="row" style={{justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:12}}>
         <div><div className="eyebrow" style={{marginBottom:8}}>{terms.principal}’s command center · you are the board</div><h1 style={{fontSize:26}}>All agents at a glance</h1></div>
         <div className="row" style={{gap:18}}>
-          <div style={{textAlign:'right'}}><div style={{fontFamily:'var(--font-d)',fontWeight:700,fontSize:20}}>${totalUsed}<span className="faint" style={{fontSize:13}}>/${totalCap}</span></div><div className="faint mono" style={{fontSize:10}}>BUDGET / MO</div></div>
+          <div style={{textAlign:'right'}}><div style={{fontFamily:'var(--font-d)',fontWeight:700,fontSize:20}}>{fmt$(totalUsed)}<span className="faint" style={{fontSize:13}}>/{fmt$(totalCap)}</span></div><div className="faint mono" style={{fontSize:10}}>CREDITS USED</div></div>
           <div style={{textAlign:'right'}}><div style={{fontFamily:'var(--font-d)',fontWeight:700,fontSize:20}}>{data.FACULTY.length}</div><div className="faint mono" style={{fontSize:10}}>AGENTS</div></div>
         </div>
       </div>
@@ -183,7 +273,7 @@ function CommandCenter({ terms, data }){
               <div style={{flex:1,minWidth:0}}><b style={{fontFamily:'var(--font-d)',fontSize:13.5}}>{f.name}</b> <span className="faint mono" style={{fontSize:11}}>{roleTermFor(f.role,terms)}{f.subject?' · '+f.subject:''}</span></div>
               <span className="faint mono cmd-model" style={{fontSize:11}}>{f.model}</span>
               {(()=>{ const g=gradeFor(f); return g ? <span className={"badge "+(g.score>=80?'mint':'gold')}>{g.letter}</span> : <span className="badge" style={{opacity:.5}}>—</span>; })()}
-              <div className="cmd-budget"><div className="bar" style={{width:70}}><i style={{width:((f.budget?f.budget.used/f.budget.cap:0)*100)+'%'}}/></div><span className="faint mono" style={{fontSize:10}}>${f.budget?f.budget.used:0}/{f.budget?f.budget.cap:0}</span></div>
+              <div className="cmd-budget"><div className="bar" style={{width:70}}><i style={{width:Math.min(100,(f.budget&&f.budget.cap?f.budget.used/f.budget.cap:0)*100)+'%'}}/></div><span className="faint mono" style={{fontSize:10}}>{fmt$(f.budget?f.budget.used:0)}/{fmt$(f.budget?f.budget.cap:0)}</span></div>
               <div className="cmd-actions"><button className="mini-btn">pause</button></div>
             </div>
           ))}
@@ -217,6 +307,8 @@ function Connections({ terms, data }){
   const [test, setTest] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [usage, setUsage] = useState(null);
+  const [capDraft, setCapDraft] = useState('');
 
   useEffect(()=>{
     if(!window.AULA_API){ setOffline(true); return; }
@@ -227,7 +319,14 @@ function Connections({ terms, data }){
         pick(p.providers, start, a.connected ? a.model : '');
       })
       .catch(()=> setOffline(true));
+    window.AULA_API.usage().then(u=>{ setUsage(u); setCapDraft(String(u.cap)); }).catch(()=>{});
   },[]);
+
+  function saveCap(){
+    const cap = parseFloat(capDraft);
+    if(isNaN(cap) || cap < 0) return;
+    window.AULA_API.setBudget(cap).then(u=>{ setUsage(u); setCapDraft(String(u.cap)); window.AULA_API.hydrate(); }).catch(()=>{});
+  }
 
   function pick(list, id, withModel){
     const spec = (list||providers).find(p=>p.id===id);
@@ -270,7 +369,7 @@ function Connections({ terms, data }){
       {offline ? (
         <div className="card coral-note" style={{marginBottom:24}}>
           <b style={{fontFamily:'var(--font-d)',fontSize:14.5}}>Backend not reachable</b>
-          <p className="muted" style={{fontSize:13.5,marginTop:6}}>Start it with <span className="mono">cd backend &amp;&amp; ./run.sh</span> (defaults to <span className="mono">http://localhost:8000</span>). The app runs in demo mode until then.</p>
+          <p className="muted" style={{fontSize:13.5,marginTop:6}}>Start it with <span className="mono">backend\run.bat</span> (Windows) or <span className="mono">backend/run.sh</span>, then open <span className="mono">http://localhost:8000</span>. The app runs in demo mode until then.</p>
         </div>
       ) : (
         <React.Fragment>
@@ -286,6 +385,25 @@ function Connections({ terms, data }){
               {active && active.connected && <button className="btn ghost" onClick={disconnect} disabled={busy}>Disconnect</button>}
             </div>
           </div>
+
+          {/* Credits & budget */}
+          {usage && (
+            <div className="card" style={{marginBottom:18}}>
+              <div className="row" style={{justifyContent:'space-between',flexWrap:'wrap',gap:12,alignItems:'center'}}>
+                <div style={{flex:1,minWidth:220}}>
+                  <div className="eyebrow" style={{marginBottom:6}}>Credits & budget</div>
+                  <b style={{fontFamily:'var(--font-d)',fontSize:15}}>${usage.used.toFixed(2)} <span className="faint" style={{fontWeight:400}}>of</span> ${usage.cap.toFixed(2)} <span className="faint" style={{fontWeight:400}}>spent</span></b>
+                  <div style={{marginTop:8,maxWidth:280}}><Bar value={usage.used} max={Math.max(usage.cap,0.01)} /></div>
+                  <p className="faint" style={{fontSize:11.5,marginTop:8}}>Every agent call is metered at the provider's token price. Low credits auto-downshift agents to the cheapest model; at $0 they fall back to demo mode.</p>
+                </div>
+                <div className="row" style={{gap:8,alignItems:'center'}}>
+                  <span className="faint mono" style={{fontSize:11}}>cap $</span>
+                  <input className="conn-input mono" style={{width:90}} value={capDraft} onChange={e=>setCapDraft(e.target.value)} />
+                  <button className="btn ghost" onClick={saveCap}>Set</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Provider picker */}
           <div className="eyebrow" style={{marginBottom:12}}>Choose a provider</div>

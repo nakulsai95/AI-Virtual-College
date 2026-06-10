@@ -23,14 +23,38 @@ def cors_origins() -> list[str]:
     return [o.strip() for o in raw.split(",") if o.strip()]
 
 
+# Standard vendor key names → provider id, so a plain `OPENAI_API_KEY=...`
+# in .env goes live without any extra AULA_* config.
+_VENDOR_KEYS = [
+    ("AULA_API_KEY", None),  # explicit AULA config wins (uses AULA_PROVIDER)
+    ("ANTHROPIC_API_KEY", "claude"),
+    ("OPENAI_API_KEY", "openai"),
+    ("GEMINI_API_KEY", "gemini"),
+    ("GOOGLE_API_KEY", "gemini"),
+    ("MISTRAL_API_KEY", "mistral"),
+    ("GROQ_API_KEY", "groq"),
+]
+
+
 def seed_connector() -> dict | None:
-    """Optional connector pre-seeded from env, so the app can run without the UI."""
-    provider = os.getenv("AULA_PROVIDER")
+    """Optional connector pre-seeded from env, so the app can run without the UI.
+
+    Either set AULA_PROVIDER + AULA_API_KEY, or just drop a standard vendor
+    key (e.g. OPENAI_API_KEY / ANTHROPIC_API_KEY) into .env.
+    """
+    provider = os.getenv("AULA_PROVIDER", "")
+    api_key = os.getenv("AULA_API_KEY", "")
+    if not provider:
+        for env_name, pid in _VENDOR_KEYS:
+            value = os.getenv(env_name, "")
+            if value and pid:
+                provider, api_key = pid, value
+                break
     if not provider:
         return None
     return {
         "provider": provider,
-        "api_key": os.getenv("AULA_API_KEY", ""),
+        "api_key": api_key,
         "model": os.getenv("AULA_MODEL", ""),
         "base_url": os.getenv("AULA_OLLAMA_BASE_URL", "") if provider == "ollama" else "",
     }
