@@ -129,11 +129,13 @@ class BudgetIn(BaseModel):
 class LabGenerateIn(BaseModel):
     subject: str
     topic: str
+    mode: str = ""  # "" structured lab | "game" playable arcade
 
 
 class LabCompleteIn(BaseModel):
     subject: str = ""
     score: int = 0
+    topic: str = ""
 
 
 class ReviewIn(BaseModel):

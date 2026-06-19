@@ -5,6 +5,7 @@ const NAV = [
   { group:'Learn', items:[
     { key:'home', label:'Dashboard', icon:'home' },
     { key:'curriculum', label:'Curriculum', icon:'book' },
+    { key:'schedule', label:'Schedule', icon:'exam' },
     { key:'board', label:'My Board', icon:'board' },
     { key:'guide', label:'Personal Guide', icon:'guide' },
     { key:'channel', label:'Channel', icon:'chat' },

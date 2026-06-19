@@ -819,6 +819,44 @@ def get_lab(subject_id: str, topic: str) -> dict | None:
     return spec
 
 
+def story_recap() -> str:
+    try:
+        log = json.loads(get_config("story_log", "[]"))
+    except json.JSONDecodeError:
+        log = []
+    if not log:
+        return ""
+    return "The hero has already cleared: " + ", ".join(log[-5:]) + "."
+
+
+def advance_story(topic: str) -> None:
+    if not topic:
+        return
+    try:
+        log = json.loads(get_config("story_log", "[]"))
+    except json.JSONDecodeError:
+        log = []
+    if topic not in log:
+        log.append(topic)
+    set_config("story_log", json.dumps(log[-12:]))
+
+
+def next_topic_after(subject_id: str, topic: str) -> str:
+    """The next class in curriculum order after this topic (for story flow)."""
+    with connect() as c:
+        rows = [r["topic"] for r in c.execute(
+            "SELECT cat.topic FROM catalog cat JOIN subjects s ON s.id=cat.subject_id "
+            "JOIN modules m ON m.id=cat.module_id "
+            "ORDER BY s.position, m.position, cat.position").fetchall()]
+    if topic in rows:
+        i = rows.index(topic)
+        if i + 1 < len(rows):
+            return rows[i + 1]
+    # else: next planned overall
+    nxt = next_planned_catalog()
+    return nxt["topic"] if nxt else ""
+
+
 def save_lab(subject_id: str, topic: str, spec: dict) -> int:
     with connect() as c:
         cur = c.execute("INSERT INTO labs(subject_id,topic,kind,spec,created_at) "

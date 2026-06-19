@@ -202,34 +202,71 @@ function openTask(t, nav){
   nav('lesson');
 }
 function MyBoard({ terms, nav, data }){
+  const { useState } = React;
   const cols = [
     { key:'lessons', label:'Lessons' }, { key:'doing', label:'Doing' },
     { key:'submitted', label:'Submitted' }, { key:'graded', label:'Graded' }
   ];
+  // Stable color per subject (from the curriculum hue, with a fallback palette).
+  const PAL = ['#f5a623','#3b82f6','#9b6cff','#2dd4bf','#f0846b','#46d6ad','#e6c06a','#6e8efb'];
+  const hueFor = {};
+  (data.SUBJECTS||[]).forEach((s,i)=>{ hueFor[s.title] = s.hue || PAL[i%PAL.length]; });
+  const subjectHue = (name)=> hueFor[name] || PAL[(Math.abs((name||'').split('').reduce((a,ch)=>a+ch.charCodeAt(0),0)))%PAL.length];
+
+  const allSubjects = Array.from(new Set(
+    cols.flatMap(c=>(data.KANBAN[c.key]||[]).map(t=>t.subject)).filter(Boolean)));
+  const [filter,setFilter] = useState('all');
+  const match = (t)=> filter==='all' || t.subject===filter;
+
   return (
     <div className="screen-pad wide">
-      <div className="row" style={{justifyContent:'space-between',marginBottom:6}}>
-        <div><h1 style={{fontSize:26}}>My Board</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Tasks across your {terms.semester.toLowerCase()} · synced via Kanban MCP</p></div>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:10}}>
+        <div><h1 style={{fontSize:26}}>My Board</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Tasks across your {terms.semester.toLowerCase()} · color-coded by subject</p></div>
         <span className="badge accent mono">⛁ kanban-mcp · live</span>
       </div>
-      <div className="kanban">
-        {cols.map(c=>(
-          <div key={c.key} className="kan-col">
-            <div className="kan-head"><span>{c.label}</span><span className="kan-n">{data.KANBAN[c.key].length}</span></div>
-            <div className="kan-cards">
-              {data.KANBAN[c.key].map(t=>(
-                <div key={t.id} className={"kan-card"+(t.type==='lesson'?' lesson':'')} onClick={()=>openTask(t,nav)}>
-                  <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
-                    <span className={"badge "+(t.good===true?'mint':t.good===false?'coral':'')}>{t.type}</span>
-                    {t.tool && <span className="badge gold mono">tool</span>}
-                  </div>
-                  <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:13.5,lineHeight:1.3}}>{t.title}</div>
-                  <div className="faint mono" style={{fontSize:11,marginTop:9}}>{t.subject} · {t.meta}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+
+      {/* Subject filter + legend */}
+      <div className="row" style={{gap:8,marginBottom:16,flexWrap:'wrap'}}>
+        <button className={"ex-chip"+(filter==='all'?' on-chip':'')} onClick={()=>setFilter('all')}
+          style={filter==='all'?{color:'var(--accent)',borderColor:'var(--accent-line)',background:'var(--accent-soft)'}:{}}>All subjects</button>
+        {allSubjects.map(s=>(
+          <button key={s} className={"ex-chip"+(filter===s?' on-chip':'')} onClick={()=>setFilter(s)}
+            style={{display:'inline-flex',alignItems:'center',gap:7,
+              ...(filter===s?{borderColor:subjectHue(s),background:'rgba(255,255,255,.04)'}:{})}}>
+            <span style={{width:9,height:9,borderRadius:3,background:subjectHue(s),display:'inline-block'}}/>{s}
+          </button>
         ))}
+      </div>
+
+      <div className="kanban">
+        {cols.map(c=>{
+          const cards = (data.KANBAN[c.key]||[]).filter(match);
+          return (
+            <div key={c.key} className="kan-col">
+              <div className="kan-head"><span>{c.label}</span><span className="kan-n">{cards.length}</span></div>
+              <div className="kan-cards">
+                {cards.map(t=>{
+                  const hue = subjectHue(t.subject);
+                  return (
+                    <div key={t.id} className={"kan-card"+(t.type==='lesson'?' lesson':'')}
+                      onClick={()=>openTask(t,nav)}
+                      style={{borderLeft:'3px solid '+hue, paddingLeft:11}}>
+                      <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
+                        <span className="badge" style={{color:hue,borderColor:hue,background:'transparent'}}>{t.subject||t.type}</span>
+                        {t.tool && <span className="badge gold mono">tool</span>}
+                        {t.good===true && <span className="badge mint">passed</span>}
+                        {t.good===false && <span className="badge coral">retry</span>}
+                      </div>
+                      <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:13.5,lineHeight:1.3}}>{t.title}</div>
+                      <div className="faint mono" style={{fontSize:11,marginTop:9}}>{t.type} · {t.meta}</div>
+                    </div>
+                  );
+                })}
+                {!cards.length && <div className="faint mono" style={{fontSize:11,padding:'10px 4px'}}>nothing here</div>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -389,7 +426,8 @@ function LessonBody({ terms, nav, L }){
         {/* This class — the parts a real course bundles together */}
         <div className="row" style={{gap:8,marginBottom:24,flexWrap:'wrap'}}>
           <button className="btn primary" style={{fontSize:13}} onClick={()=>setLecture(true)}>▶ Lecture mode</button>
-          <button className="btn ghost" style={{fontSize:13}} onClick={()=>nav('lab',{subject:L.subject,topic:L.title})}>🎮 Play the lab</button>
+          <button className="btn ghost" style={{fontSize:13}} onClick={()=>nav('lab',{subject:L.subject,topic:L.title})}>🎮 Play the game</button>
+          <button className="btn ghost" style={{fontSize:13}} onClick={()=>nav('lab',{subject:L.subject,topic:L.title,mode:'lab'})}>🧩 Quick lab</button>
           {L.refs && L.refs.length>0 && <span className="badge mono">📖 {L.refs.length} readings</span>}
           <span className="badge mono">✓ probe below</span>
         </div>
@@ -835,49 +873,145 @@ function ProgressScreen({ terms, nav, data }){
   );
 }
 
+/* ---------- Schedule (week-by-week university timetable) ---------- */
+function ScheduleScreen({ terms, nav, data }){
+  const S = data.STUDENT;
+  const weeks = S.weeks || 12;
+  const now = S.week || 1;
+  const PAL = ['#f5a623','#3b82f6','#9b6cff','#2dd4bf','#f0846b','#46d6ad','#e6c06a','#6e8efb'];
+  // Spread each subject's modules evenly across the semester → a real timetable.
+  const byWeek = {};
+  (data.SUBJECTS||[]).forEach((s,si)=>{
+    const hue = s.hue || PAL[si%PAL.length];
+    const mods = s.modules||[];
+    mods.forEach((m,mi)=>{
+      const wk = Math.max(1, Math.min(weeks, Math.round((mi+1)/Math.max(1,mods.length)*weeks)));
+      (byWeek[wk] = byWeek[wk]||[]).push({ subject:s.title, hue, module:m.title, status:m.status, idx:mi+1 });
+    });
+  });
+  const list = Array.from({length:weeks},(_,i)=>i+1);
+  return (
+    <div className="screen-pad">
+      <div className="row" style={{justifyContent:'space-between',alignItems:'flex-end',marginBottom:18,flexWrap:'wrap',gap:12}}>
+        <div>
+          <div className="eyebrow" style={{marginBottom:8}}>{terms.semester} schedule · designed by {terms.principal}</div>
+          <h1 style={{fontSize:26}}>When to study what</h1>
+          <p className="muted" style={{fontSize:14,marginTop:6}}>Your {weeks}-week plan. Each week tells you which class to start — you're in <b style={{color:'var(--accent)'}}>week {now}</b>.</p>
+        </div>
+      </div>
+      <div className="col" style={{gap:10}}>
+        {list.map(wk=>{
+          const items = byWeek[wk]||[];
+          const isNow = wk===now, past = wk<now;
+          return (
+            <div key={wk} className="card" style={{padding:'12px 16px',opacity:past?0.6:1,
+              borderColor:isNow?'var(--accent-line)':'var(--line)',
+              background:isNow?'var(--accent-soft)':undefined}}>
+              <div className="row" style={{gap:14,alignItems:'flex-start'}}>
+                <div style={{textAlign:'center',minWidth:52}}>
+                  <div className="faint mono" style={{fontSize:10}}>WEEK</div>
+                  <div style={{fontFamily:'var(--font-d)',fontWeight:700,fontSize:22,color:isNow?'var(--accent)':'inherit'}}>{wk}</div>
+                  {isNow && <div className="badge accent mono" style={{fontSize:9,marginTop:2}}>now</div>}
+                </div>
+                <div style={{flex:1}}>
+                  {items.length? items.map((it,j)=>(
+                    <div key={j} className="row" style={{gap:9,marginBottom:j<items.length-1?8:0,alignItems:'center'}}>
+                      <span style={{width:9,height:9,borderRadius:3,background:it.hue,flexShrink:0}}/>
+                      <span className="faint mono" style={{fontSize:11,minWidth:90}}>{it.subject}</span>
+                      <span style={{flex:1,fontSize:13.5,fontFamily:'var(--font-d)'}}>{terms.module} {it.idx}: {it.module}</span>
+                      {it.status==='done' && <span className="badge mint">done</span>}
+                      {it.status==='active' && <span className="badge accent">in progress</span>}
+                      {isNow && it.status!=='done' && <button className="btn primary" style={{fontSize:12,padding:'5px 12px'}} onClick={()=>nav('library')}>Start →</button>}
+                    </div>
+                  )) : <span className="faint" style={{fontSize:12.5}}>Catch-up / review week</span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Lab / game (learn by playing) ---------- */
 function shuffle(a){ const r=a.slice(); for(let i=r.length-1;i>0;i--){ const j=Math.floor((i+1)* (Math.sin(i*99.7)*0.5+0.5)); const t=r[i]; r[i]=r[j]; r[j]=t; } return r; }
 function LabScreen({ terms, nav, data, payload }){
   const { useState, useEffect } = React;
   const subject = (payload && payload.subject) || (data.SUBJECTS[0]||{}).title || '';
   const topic = (payload && payload.topic) || subject;
+  const gameMode = !(payload && payload.mode==='lab');   // default: an actual game
   const [lab,setLab] = useState(null);
   const [err,setErr] = useState('');
   const [done,setDone] = useState(null);   // {score}
-  useEffect(()=>{
-    if(!window.AULA_API || !window.AULA_LIVE){ setErr('Connect the backend to play labs.'); return; }
-    window.AULA_API.labGenerate(subject, topic)
-      .then(r=>setLab(r.lab))
-      .catch(e=>setErr(String(e.message||e)));
-  },[subject,topic]);
+
+  function load(){
+    setLab(null); setErr(''); setDone(null);
+    if(!window.AULA_API || !window.AULA_LIVE){ setErr('Connect the backend to play.'); return; }
+    const gen = gameMode ? window.AULA_API.gameGenerate(subject, topic) : window.AULA_API.labGenerate(subject, topic);
+    gen.then(r=>setLab(r.lab)).catch(e=>setErr(String(e.message||e)));
+  }
+  useEffect(()=>{ load(); },[subject,topic,gameMode]);
 
   function finish(score){
     setDone({score});
-    if(window.AULA_API && window.AULA_LIVE) window.AULA_API.labComplete(subject, score).then(()=>window.AULA_API.hydrate()).catch(()=>{});
+    if(window.AULA_API && window.AULA_LIVE) window.AULA_API.labComplete(subject, score, topic).then(()=>window.AULA_API.hydrate()).catch(()=>{});
   }
+  const isGame = lab && lab.kind==='arcade';
 
   return (
-    <div className="screen-pad">
+    <div className={"screen-pad"+(isGame?' wide':'')}>
       <button className="btn ghost" style={{marginBottom:18,padding:'8px 14px',fontSize:13}} onClick={()=>nav('library')}>← Library</button>
-      <div className="eyebrow" style={{marginBottom:8}}>{subject} · interactive lab</div>
+      <div className="eyebrow" style={{marginBottom:8}}>{subject} · {isGame?'play to learn':'interactive lab'}</div>
       <h1 style={{fontSize:28,marginBottom:6}}>{lab?lab.title:topic}</h1>
       {err && <div className="card coral-note" style={{marginTop:14}}><p className="muted" style={{fontSize:13.5}}>{err}</p></div>}
-      {!lab && !err && <div className="card" style={{marginTop:14,padding:30,textAlign:'center'}}><p className="muted">The professor is designing your lab…</p></div>}
+      {!lab && !err && <div className="card" style={{marginTop:14,padding:30,textAlign:'center'}}><p className="muted">{gameMode?'Your professor is building a game for this chapter…':'The professor is designing your lab…'}</p></div>}
       {done ? (
         <div className={"card "+(done.score>=60?'mint-note':'coral-note')} style={{marginTop:16}}>
-          <b style={{fontFamily:'var(--font-d)',fontSize:16}}>{done.score>=60?'Nice — you’ve got it.':'Good attempt — run it again to lock it in.'}</b>
+          <b style={{fontFamily:'var(--font-d)',fontSize:16}}>{done.score>=60?'Chapter cleared — you’ve got it.':'Good run — play again to master it.'}</b>
           <div className="row" style={{gap:10,margin:'10px 0'}}>
             <span className={"badge "+(done.score>=60?'mint':'coral')}>{done.score}%</span>
             <span className="badge accent mono">+{20+Math.floor(done.score/5)} XP</span>
           </div>
-          <button className="btn primary" onClick={()=>{setDone(null);setLab(null);window.AULA_API.labGenerate(subject,topic).then(r=>setLab(r.lab)).catch(()=>{});}}>Play again</button>
+          <button className="btn primary" onClick={load}>Play again</button>
           <button className="btn ghost" style={{marginLeft:8}} onClick={()=>nav('library')}>Back to library</button>
         </div>
-      ) : lab && <LabRunner lab={lab} onFinish={finish} terms={terms} />}
+      ) : lab && (isGame ? <ArcadeGame lab={lab} onFinish={finish} /> : <LabRunner lab={lab} onFinish={finish} terms={terms} />)}
+    </div>
+  );
+}
+/* arcade — a real, playable LLM-authored game, run in a sandboxed iframe */
+function ArcadeGame({ lab, onFinish }){
+  const { useEffect, useRef, useState } = React;
+  const frame = useRef(null);
+  const [ended,setEnded] = useState(false);
+  useEffect(()=>{
+    function onMsg(e){
+      const d = e.data;
+      if(d && d.aula==='score'){ setEnded(true); onFinish(Math.max(0,Math.min(100, parseInt(d.value)||0))); }
+    }
+    window.addEventListener('message', onMsg);
+    return ()=>window.removeEventListener('message', onMsg);
+  },[]);
+  return (
+    <div className="card" style={{marginTop:16,padding:14}}>
+      <div className="row" style={{gap:10,flexWrap:'wrap',marginBottom:10}}>
+        {lab.controls && <span className="badge accent mono">🎮 {lab.controls}</span>}
+        {lab.goal && <span className="faint" style={{fontSize:12.5}}>{lab.goal}</span>}
+      </div>
+      <iframe ref={frame} title="game" sandbox="allow-scripts"
+        srcDoc={lab.html}
+        style={{width:'100%',height:460,border:'1px solid var(--line)',borderRadius:12,background:'#000',display:'block'}}
+        tabIndex={0} onLoad={e=>{ try{ e.target.contentWindow.focus(); }catch(_){} }} />
+      <div className="row" style={{justifyContent:'space-between',marginTop:10}}>
+        <span className="faint mono" style={{fontSize:11}}>Click the game, then use the keys. Finishing reports your score automatically.</span>
+        {!ended && <button className="btn ghost" onClick={()=>onFinish(60)}>I'm done</button>}
+      </div>
     </div>
   );
 }
 function LabRunner({ lab, onFinish, terms }){
+  if(lab.kind==='sort') return <SortGame lab={lab} onFinish={onFinish} />;
   if(lab.kind==='steps') return <StepsGame lab={lab} onFinish={onFinish} />;
   if(lab.kind==='scenario') return <ScenarioGame lab={lab} onFinish={onFinish} />;
   if(lab.kind==='quiz') return <QuizGame lab={lab} onFinish={onFinish} />;
@@ -886,6 +1020,72 @@ function LabRunner({ lab, onFinish, terms }){
   if(lab.kind==='bugfix') return <BugfixGame lab={lab} onFinish={onFinish} />;
   return <div className="card" style={{marginTop:16,padding:20}}><p className="muted">This lab type isn’t supported yet.</p></div>;
 }
+/* sort — arcade flash game: drop each item into the right bucket, beat the clock */
+function SortGame({ lab, onFinish }){
+  const { useState, useEffect, useRef } = React;
+  const items = lab.items||[];
+  const TOTAL_T = Math.max(30, items.length*7);
+  const [idx,setIdx] = useState(0);
+  const [score,setScore] = useState(0);
+  const [combo,setCombo] = useState(0);
+  const [correct,setCorrect] = useState(0);
+  const [fb,setFb] = useState(null);          // {ok, why}
+  const [t,setT] = useState(TOTAL_T);
+  const [over,setOver] = useState(false);
+  const lockRef = useRef(false);
+  const finishedRef = useRef(false);
+
+  useEffect(()=>{
+    if(over) return;
+    const id = setInterval(()=>setT(x=>{ if(x<=1){ clearInterval(id); end(correct); return 0; } return x-1; }),1000);
+    return ()=>clearInterval(id);
+  },[over]);
+
+  function end(c){ if(finishedRef.current) return; finishedRef.current=true; setOver(true); onFinish(Math.round(c/items.length*100)); }
+  function pick(cat){
+    if(lockRef.current || over || idx>=items.length) return;
+    const it = items[idx];
+    const ok = cat===it.category;
+    lockRef.current = true;
+    if(ok){ const pts=10*(1+Math.floor(combo*0.5)); setScore(s=>s+pts); setCombo(c=>c+1); setCorrect(c=>c+1); }
+    else { setCombo(0); }
+    setFb({ ok, why: it.why || (ok?'Correct.':'Not quite — '+it.text+' belongs in '+it.category+'.') });
+    setTimeout(()=>{
+      setFb(null); lockRef.current=false;
+      const n = idx+1; setIdx(n);
+      if(n>=items.length) end(ok?correct+1:correct);
+    }, 1100);
+  }
+  const it = items[idx];
+  const pct = Math.round(t/TOTAL_T*100);
+  return (
+    <div className="card" style={{marginTop:16}}>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:6}}>
+        <span className="faint mono" style={{fontSize:11}}>{lab.intro} · drop it in the right bucket</span>
+        <div className="row" style={{gap:12}}>
+          {combo>1 && <span className="badge accent mono">🔥 {combo}× combo</span>}
+          <span className="badge mono">★ {score}</span>
+          <span className="badge mono">{idx}/{items.length}</span>
+        </div>
+      </div>
+      <div className="bar" style={{height:6,marginBottom:18}}><i style={{width:pct+'%',background:pct<25?'var(--coral)':'var(--accent)'}}/></div>
+
+      <div style={{textAlign:'center',minHeight:84,display:'flex',flexDirection:'column',justifyContent:'center',marginBottom:18}}>
+        {it && !over ? (
+          <div className="card" style={{display:'inline-block',padding:'18px 26px',fontFamily:'var(--font-d)',fontWeight:700,fontSize:20,border:'1px solid var(--accent-line)'}}>{it.text}</div>
+        ) : <div className="muted">{over?'Time! Tallying…':'Done'}</div>}
+        {fb && <p className="muted" style={{fontSize:13,marginTop:10,color:fb.ok?'var(--mint)':'var(--coral)'}}>{fb.ok?'✓ ':'✗ '}{fb.why}</p>}
+      </div>
+
+      <div className="row" style={{gap:10,flexWrap:'wrap',justifyContent:'center'}}>
+        {lab.categories.map(c=>(
+          <button key={c} className="btn ghost" style={{minWidth:120,justifyContent:'center',fontFamily:'var(--font-d)',fontWeight:600}} onClick={()=>pick(c)} disabled={!!fb||over}>{c}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* steps — predict → reveal → learn the why, one stage at a time */
 function StepsGame({ lab, onFinish }){
   const { useState } = React;
@@ -1166,5 +1366,6 @@ Object.assign(window, {
   SCR_home:Dashboard, SCR_board:MyBoard, SCR_lesson:LessonScreen,
   SCR_guide:GuideScreen, SCR_channel:ChannelScreen, SCR_library:LibraryScreen,
   SCR_progress:ProgressScreen, SCR_curriculum:CurriculumScreen,
-  SCR_lab:LabScreen, SCR_review:ReviewScreen, SCR_transcript:TranscriptScreen
+  SCR_lab:LabScreen, SCR_review:ReviewScreen, SCR_transcript:TranscriptScreen,
+  SCR_schedule:ScheduleScreen
 });

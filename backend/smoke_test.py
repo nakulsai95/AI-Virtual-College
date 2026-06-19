@@ -111,7 +111,7 @@ check("review reschedules a card", r.status_code == 200
 # 4f. interactive labs (Track A)
 r = client.post("/api/lab/generate", json={"subject": first_subject["title"], "topic": "warm-up"})
 check("lab generated", r.status_code == 200 and r.json()["lab"]["kind"] in
-      ("steps", "scenario", "quiz", "match", "order", "bugfix"), r.text[:200])
+      ("sort", "steps", "scenario", "quiz", "match", "order", "bugfix"), r.text[:200])
 check("lab teaches (steps have reveals)",
       r.json()["lab"]["kind"] != "steps" or
       all(st.get("reveal") for st in r.json()["lab"]["steps"]),
@@ -121,9 +121,19 @@ r2 = client.post("/api/lab/generate", json={"subject": first_subject["title"], "
 check("lab is cached on second call", r2.json().get("cached") is True and
       r2.json()["lab"]["id"] == _lab_id)
 _xp_before = client.get("/api/state").json()["STUDENT"]["xp"]
-r = client.post("/api/lab/complete", json={"subject": first_subject["title"], "score": 80})
+r = client.post("/api/lab/complete", json={"subject": first_subject["title"], "score": 80,
+                                           "topic": "warm-up"})
 check("lab completion awards xp", r.status_code == 200
       and client.get("/api/state").json()["STUDENT"]["xp"] > _xp_before)
+
+# playable game (arcade) — real canvas + score reporting, cached
+r = client.post("/api/game/generate", json={"subject": first_subject["title"], "topic": "level one"})
+_g = r.json()["lab"]
+check("playable game generated", r.status_code == 200 and _g["kind"] == "arcade"
+      and "<canvas" in _g["html"].lower() and "postmessage" in _g["html"].lower(),
+      str(_g)[:160])
+r2 = client.post("/api/game/generate", json={"subject": first_subject["title"], "topic": "level one"})
+check("game cached on second call", r2.json().get("cached") is True)
 
 # 4d. JIT: un-write one class, generate it on demand
 with db.connect() as _c:

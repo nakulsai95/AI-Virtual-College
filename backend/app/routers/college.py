@@ -369,17 +369,45 @@ def lab_generate(body: LabGenerateIn):
     return {"lab": spec, "cached": False, "using_mock": provider.id == "mock"}
 
 
+@router.post("/game/generate")
+def game_generate(body: LabGenerateIn):
+    """Author (or return the cached) PLAYABLE game for a class — a chapter in the
+    continuing adventure. Falls back to a structured lab if no runnable game."""
+    subject_id = _subject_id_for(body.subject)
+    cache_key = body.topic + " ::game"
+    cached = db.get_lab(subject_id, cache_key)
+    if cached:
+        return {"lab": cached, "cached": True}
+
+    context, _ = db.materials_context(subject_id, body.topic) if subject_id else ("", [])
+    sandbox = builder._subject_sandbox(subject_id) if subject_id else "python"
+    provider = metered(build_provider(store.get_connector()), "professor",
+                       "design game", tier="bulk")
+    spec = lab.design_arcade(provider, subject=body.subject, topic=body.topic,
+                             materials=context,
+                             next_topic=db.next_topic_after(subject_id, body.topic),
+                             story=db.story_recap())
+    if not spec:  # no runnable game — fall back to a structured learning lab
+        spec = lab.design_lab(provider, subject=body.subject, topic=body.topic,
+                              materials=context, sandbox=sandbox)
+    spec["id"] = db.save_lab(subject_id, cache_key, spec)
+    return {"lab": spec, "cached": False, "using_mock": provider.id == "mock"}
+
+
 @router.post("/lab/complete")
 def lab_complete(body: LabCompleteIn):
-    """Finishing a lab rewards the learner: XP + mastery (never punitive)."""
+    """Finishing a lab/game rewards the learner (XP + mastery) and advances the
+    story so the next chapter can build on it."""
     score = max(0, min(100, body.score))
     db.award_xp(20 + score // 5)
     subject_id = _subject_id_for(body.subject)
     if subject_id:
         db.bump_mastery(subject_id, amount=0.05 + score / 1000)
+    if body.topic and score >= 50:
+        db.advance_story(body.topic)
     prof = db.resolve_professor(subject=body.subject)
     db.log_feed(prof["name"] if prof else "Lab",
-                f"Lab completed · {body.subject or 'practice'} · {score}%",
+                f"Cleared “{body.topic or body.subject or 'practice'}” · {score}%",
                 "pos" if score >= 60 else "neutral")
     db.check_in()
     return {"ok": True, "score": score}

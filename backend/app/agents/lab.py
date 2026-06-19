@@ -19,6 +19,9 @@ because the teaching is woven into the play (every step/choice explains the
 why). This is not a test at the end of learning; it IS the learning. Any domain.
 
 Pick the kind that best TEACHES this concept:
+- "sort": an arcade game — items must be dropped into the right CATEGORY bucket
+  against the clock; each reveals why. Best for taxonomies, classification,
+  "which type is this", grouping rules.
 - "steps": walk the learner through how something works, ONE stage at a time.
   At each stage they PREDICT what happens next, then you reveal and explain.
   Best for processes, mechanisms, algorithms, cause-and-effect, "how X works".
@@ -34,9 +37,12 @@ Pick the kind that best TEACHES this concept:
 Prefer "steps" or "scenario" — they teach best. Return a single JSON object, no
 markdown, matching the chosen kind:
 {
-  "kind": "steps|scenario|match|order|quiz|bugfix",
+  "kind": "sort|steps|scenario|match|order|quiz|bugfix",
   "title": "<short lab title>",
   "intro": "<1 sentence: what the learner will figure out>",
+  // sort (arcade — drop items into category buckets):
+  "categories": ["<bucket A>", "<bucket B>", "..."],
+  "items": [{"text": "<thing to classify>", "category": "<exact bucket name>", "why": "<teach the rule>"}],
   // steps (predict → reveal → explain):
   "steps": [{"stage": "<what's happening now>",
              "predict": {"q": "What happens next?", "options": ["...","..."], "answer": <index>},
@@ -79,7 +85,18 @@ def _sanitize(data: dict, topic: str, sandbox: str) -> dict | None:
     kind = str(data.get("kind", "")).lower()
     title = str(data.get("title", "")).strip() or f"{topic} lab"
     intro = str(data.get("intro", "")).strip()
-    if kind == "steps":
+    if kind == "sort":
+        cats = [str(c).strip() for c in (data.get("categories") or []) if str(c).strip()]
+        items = []
+        for it in data.get("items", []):
+            t = str(it.get("text", "")).strip()
+            cat = str(it.get("category", "")).strip()
+            if t and cat in cats:
+                items.append({"text": t, "category": cat, "why": str(it.get("why", "")).strip()})
+        if 2 <= len(cats) <= 4 and len(items) >= 4:
+            return {"kind": "sort", "title": title, "intro": intro,
+                    "categories": cats, "items": items[:10]}
+    elif kind == "steps":
         steps = []
         for s in data.get("steps", []):
             stage = str(s.get("stage", "")).strip()
@@ -140,6 +157,73 @@ def _sanitize(data: dict, topic: str, sandbox: str) -> dict | None:
                     "language": str(data.get("language", sandbox))[:24],
                     "broken_code": broken[:2000], "task": str(data.get("task", "")).strip(),
                     "check": str(data.get("check", "")).strip()}
+    return None
+
+
+_GAME_SYSTEM = """You are the Game Designer at AULA, an AI-run college. Build ONE
+small but genuinely PLAYABLE browser game that teaches the given concept BY
+PLAYING IT — arcade style (move, collect, dodge, time, aim, build), in the
+spirit of a simple NES/Flash game. This is NOT a quiz and NOT multiple choice.
+
+You MAY clone a well-known simple arcade mechanic and reskin it so the content
+teaches the concept — e.g. a catcher, endless runner, platform-jumper (Mario-
+like), Snake, Breakout, Whack-a-mole, or maze. Proven mechanics play better.
+
+The mechanic must EMBODY the concept: the player wins by acting on the idea
+correctly. Examples of the *shape*:
+- collect the items that belong, dodge the ones that don't
+- a runner where you jump the correct gaps / hit the correct blocks
+- guide a value/packet along the correct path through a maze
+- stack/build pieces in the right order before time runs out
+
+STORY: this game is one CHAPTER in the learner's ongoing adventure through the
+course. If a story-so-far and a next concept are given, open by acknowledging
+the journey, theme the level around it, and END by teasing the next chapter —
+so the adventure flows from topic to topic.
+
+Output a SINGLE self-contained HTML document that runs entirely on its own:
+- One <canvas> and a vanilla-JS game loop (requestAnimationFrame). NO external
+  files, libraries, fonts, images, or network calls of any kind.
+- Keyboard controls (Arrow keys and/or Space). Print the controls on screen.
+- A visible title, live score, and a clear WIN/LOSE end screen.
+- Brief on-screen "why" feedback when the player does the concept-action right
+  or wrong, so playing teaches the idea.
+- When the game ends, post the result to the host exactly like this:
+    parent.postMessage({aula:'score', value: SCORE_0_TO_100}, '*')
+- Keep it tight (~150 lines) and make sure it actually runs with no errors.
+
+Return a single JSON object, no markdown:
+{"kind":"arcade","title":"<game name>","goal":"<how playing teaches the concept>",
+ "controls":"<e.g. ← → to move, Space to jump>","html":"<!doctype html> ... full game ..."}
+Output ONLY the JSON object."""
+
+
+def design_arcade(provider, *, subject: str, topic: str, materials: str = "",
+                  next_topic: str = "", story: str = "") -> dict | None:
+    """Author a self-contained playable HTML5 game, framed as a chapter in the
+    learner's continuing adventure. None if it doesn't come out runnable."""
+    user = f"Subject (this world): {subject}\nConcept to turn into a game (this chapter): {topic}"
+    if story:
+        user += f"\nStory so far: {story}"
+    if next_topic:
+        user += f"\nNext chapter (tease it at the end): {next_topic}"
+    if materials:
+        user += "\n\nWhat the class taught (base the game's content on this):\n" + materials[:2000]
+    try:
+        raw = provider.complete(_GAME_SYSTEM, [{"role": "user", "content": user}],
+                                max_tokens=4000, json=True)
+        data = _parse(raw)
+        html = str(data.get("html", "")).strip()
+        # Must be a real, self-contained, runnable canvas game that reports a score.
+        low = html.lower()
+        if ("<canvas" in low and "<script" in low and "postmessage" in low
+                and len(html) > 400):
+            return {"kind": "arcade", "title": str(data.get("title", "")).strip() or f"{topic} game",
+                    "goal": str(data.get("goal", "")).strip(),
+                    "controls": str(data.get("controls", "Arrow keys")).strip(),
+                    "html": html[:24000]}
+    except Exception:  # noqa: BLE001 - fall back to a structured lab
+        pass
     return None
 
 

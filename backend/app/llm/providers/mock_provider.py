@@ -28,6 +28,8 @@ class MockProvider(LLMProvider):
         # prompt also contains the word "professor").
         if "design an exam" in sys_l:
             return _demo_exam_json(user)
+        if "you are the game designer" in sys_l:
+            return _demo_game_json(user)
         if "you are the lab designer" in sys_l:
             return _demo_lab_json(user)
         if "detailed academic" in sys_l and "syllabus" in sys_l:
@@ -127,6 +129,54 @@ def _demo_exam_json(prompt: str) -> str:
         {"q": f"How would you explain {topic} to a beginner in two sentences?",
          "hint": "Plain words beat jargon."},
     ]})
+
+
+def _demo_game_json(prompt: str) -> str:
+    import re
+    m = re.search(r"concept to turn into a game:\s*(.+)", prompt, re.IGNORECASE)
+    topic = (m.group(1).strip().splitlines()[0] if m else "the concept")
+    safe = topic.replace("<", "").replace(">", "").replace("&", "")
+    # A real, self-contained catch game (demo). A connected model invents a
+    # concept-specific mechanic; this proves the arcade renderer end to end.
+    html = """<!doctype html><html><head><meta charset=utf-8><style>
+html,body{margin:0;background:#0d0d12;color:#eee;font-family:system-ui;overflow:hidden}
+#hud{position:fixed;top:8px;left:10px;font:600 14px system-ui}
+#msg{position:fixed;top:8px;right:10px;font:600 13px system-ui;color:#46d6ad}
+canvas{display:block;margin:0 auto;background:#16161e}</style></head><body>
+<div id=hud>Catch the &#9733; · ← → to move</div><div id=msg></div>
+<canvas id=c width=640 height=420></canvas><script>
+var cv=document.getElementById('c'),x=cv.getContext('2d'),W=640,H=420;
+var px=300,score=0,miss=0,t=30,items=[],keys={},over=false;
+onkeydown=function(e){keys[e.key]=1;if([' ','ArrowLeft','ArrowRight'].indexOf(e.key)>=0)e.preventDefault();};
+onkeyup=function(e){keys[e.key]=0;};
+function spawn(){items.push({x:30+Math.random()*580,y:-20,good:Math.random()>0.4,v:2+Math.random()*2});}
+var si=setInterval(spawn,800);
+var ti=setInterval(function(){t--;if(t<=0)endGame();},1000);
+function endGame(){if(over)return;over=true;clearInterval(si);clearInterval(ti);
+var sc=Math.max(0,Math.min(100,Math.round(score*8-miss*5)));
+document.getElementById('msg').textContent='Done! score '+sc;
+parent.postMessage({aula:'score',value:sc},'*');}
+function loop(){if(over){x.fillStyle='#46d6ad';x.font='28px system-ui';x.fillText('GAME OVER',240,210);return;}
+x.clearRect(0,0,W,H);
+if(keys['ArrowLeft'])px-=6;if(keys['ArrowRight'])px+=6;px=Math.max(0,Math.min(580,px));
+for(var i=items.length-1;i>=0;i--){var it=items[i];it.y+=it.v;
+x.fillStyle=it.good?'#f5a623':'#f0846b';x.beginPath();x.arc(it.x,it.y,11,0,7);x.fill();
+if(it.y>380&&it.y<410&&Math.abs(it.x-(px+30))<40){if(it.good){score++;}else{miss++;}
+document.getElementById('msg').textContent=it.good?'+ caught a good one':'- that one did not belong';items.splice(i,1);}
+else if(it.y>H){if(it.good)miss++;items.splice(i,1);}}
+x.fillStyle='#6e8efb';x.fillRect(px,388,60,16);
+x.fillStyle='#eee';x.font='13px system-ui';x.fillText('score '+score+'   time '+t,12,H-10);
+requestAnimationFrame(loop);}
+loop();
+</script></body></html>"""
+    return json.dumps({
+        "kind": "arcade",
+        "title": f"Catch: {safe}",
+        "goal": f"Catch the items that belong to {safe}, let the others fall — demo game; "
+                "connect a model for a concept-specific mechanic.",
+        "controls": "← → to move the paddle",
+        "html": html,
+    })
 
 
 def _demo_lab_json(prompt: str) -> str:
