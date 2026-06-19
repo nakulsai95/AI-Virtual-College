@@ -193,17 +193,24 @@ def openlibrary_books(topic: str, n: int = 3) -> list[dict]:
 
 # --- page content ------------------------------------------------------------
 
+_JUNK = re.compile(r"(sign in|log in|enable javascript|cookies?|404|access denied|"
+                   r"page not found|subscribe to|create an account)", re.IGNORECASE)
+
+
 def fetch_page_text(url: str, cap: int = 1500) -> str:
     """The readable text of a web page (tags stripped) — for syllabus topic
-    lists and module source material. Best-effort, capped."""
+    lists and module source material. Filters junk pages. Best-effort, capped."""
     r = _get(url)
     if r is None:
         return ""
     text = r.text
-    text = re.sub(r"(?is)<(script|style|noscript|svg|head)[^>]*>.*?</\1>", " ", text)
+    text = re.sub(r"(?is)<(script|style|noscript|svg|head|nav|footer|header|form)[^>]*>.*?</\1>", " ", text)
     text = re.sub(r"(?s)<[^>]+>", " ", text)
     text = html_lib.unescape(text)
     text = re.sub(r"\s+", " ", text).strip()
+    # Reject login walls / error pages / near-empty shells.
+    if len(text) < 300 or (len(text) < 800 and _JUNK.search(text[:400])):
+        return ""
     return text[:cap]
 
 
@@ -234,7 +241,10 @@ def curriculum_digest(goal: str) -> tuple[str, list[dict]]:
             lines.append(f"Overview ({wiki['title']}): {wiki['summary']}")
 
     uni_hits = search_web(f"{goal} course syllabus ({_UNI_SITES})", n=4)
+    oer_hits = search_web(f"{goal} (site:openstax.org OR site:saylor.org OR "
+                          f"site:khanacademy.org OR site:ocw.mit.edu)", n=3)
     gen_hits = search_web(f"{goal} university course syllabus curriculum topics", n=4)
+    uni_hits = uni_hits + oer_hits
     seen: set[str] = set()
     hits = [h for h in uni_hits + gen_hits
             if not (h["url"] in seen or seen.add(h["url"]))]

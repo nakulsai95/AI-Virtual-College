@@ -97,6 +97,34 @@ check("101 lesson shape (objectives/paras/takeaways)",
       and bool(_lj["sections"] and _lj["sections"][0].get("paras")),
       str(_lj)[:200])
 
+# 4e. flashcards + spaced repetition (Track C)
+check("review summary in state", "due" in s.get("REVIEW", {}) and "total" in s.get("REVIEW", {}))
+check("flashcards seeded from lessons", s["REVIEW"]["total"] > 0, str(s["REVIEW"]))
+r = client.get("/api/review")
+_cards = r.json()["cards"]
+check("cards are due for review", len(_cards) > 0)
+_before = client.get("/api/review").json()["counts"]["due"]
+r = client.post("/api/review", json={"card_id": _cards[0]["id"], "grade": "good"})
+check("review reschedules a card", r.status_code == 200
+      and r.json()["counts"]["due"] == _before - 1, r.text[:200])
+
+# 4f. interactive labs (Track A)
+r = client.post("/api/lab/generate", json={"subject": first_subject["title"], "topic": "warm-up"})
+check("lab generated", r.status_code == 200 and r.json()["lab"]["kind"] in
+      ("steps", "scenario", "quiz", "match", "order", "bugfix"), r.text[:200])
+check("lab teaches (steps have reveals)",
+      r.json()["lab"]["kind"] != "steps" or
+      all(st.get("reveal") for st in r.json()["lab"]["steps"]),
+      str(r.json()["lab"])[:200])
+_lab_id = r.json()["lab"]["id"]
+r2 = client.post("/api/lab/generate", json={"subject": first_subject["title"], "topic": "warm-up"})
+check("lab is cached on second call", r2.json().get("cached") is True and
+      r2.json()["lab"]["id"] == _lab_id)
+_xp_before = client.get("/api/state").json()["STUDENT"]["xp"]
+r = client.post("/api/lab/complete", json={"subject": first_subject["title"], "score": 80})
+check("lab completion awards xp", r.status_code == 200
+      and client.get("/api/state").json()["STUDENT"]["xp"] > _xp_before)
+
 # 4d. JIT: un-write one class, generate it on demand
 with db.connect() as _c:
     _row = _c.execute("SELECT id FROM catalog ORDER BY id DESC LIMIT 1").fetchone()
@@ -200,6 +228,13 @@ r = client.get("/api/usage")
 check("usage endpoint", r.status_code == 200 and "cap" in r.json())
 r = client.put("/api/budget", json={"cap": 12.5})
 check("budget set", r.status_code == 200 and r.json()["cap"] == 12.5)
+
+# account (local Gmail profile) reflects onto the live student
+r = client.put("/api/profile", json={"name": "Alex Rivera", "email": "alex.rivera@gmail.com"})
+check("profile set", r.status_code == 200 and r.json()["account"]["email"] == "alex.rivera@gmail.com")
+_st = client.get("/api/state").json()["STUDENT"]
+check("account reflected on student", _st["name"] == "Alex Rivera" and _st["handle"] == "@alex.rivera",
+      str(_st.get("name")) + " / " + str(_st.get("handle")))
 
 # 13. feed shows the whole story
 r = client.get("/api/state")

@@ -41,6 +41,7 @@ def author_lesson(body: LessonIn):
         lesson = professor.design_lesson(
             provider, subject=body.subject, topic=body.topic, professor=name,
             methodology=methodology, sandbox=body.sandbox, materials=context,
+            refine=True,
         )
         using_mock = provider.id == "mock"
     except Exception as e:  # noqa: BLE001

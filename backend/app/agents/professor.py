@@ -52,9 +52,10 @@ Return a single JSON object, no markdown:
   "read": "<e.g. 6 min>",
   "intro": "<2-3 sentence hook: why this matters to the learner's goal>",
   "sections": [{{"h": "<heading>", "p": "<one tight paragraph>"}}],
+  "flashcards": [{{"front": "<question/term>", "back": "<answer, one sentence>"}}],
   "probe": {{"q": "<one question that checks real understanding>", "hint": "<short hint>"}}
 }}
-Rules: exactly 3 sections. Output ONLY the JSON object."""
+Rules: exactly 3 sections, 3 flashcards. Output ONLY the JSON object."""
 
 
 def _system_full(methodology: dict, grounded: bool) -> str:
@@ -100,16 +101,52 @@ Return a single JSON object, no markdown:
       "diagram": "<mermaid syntax, only when it genuinely helps>"}}
   ],
   "takeaways": ["<3-5 one-line takeaways>"],
+  "flashcards": [{{"front": "<question or term>", "back": "<answer, one sentence>"}}],
   "probe": {{"q": "<one question that checks real understanding>", "hint": "<short hint>"}}
 }}
 "code" and "diagram" are OPTIONAL per section — include them where they earn
-their place. Output ONLY the JSON object."""
+their place. Write 4-5 flashcards covering the class's key facts. Output ONLY
+the JSON object."""
+
+
+_REFINE_SYSTEM = """You are a Professor at AULA reviewing your own draft class
+before publishing it — the bar is a great university lecture. Improve it:
+
+- COVERAGE: ensure every required syllabus topic is actually taught. Add a
+  section if one is missing.
+- DEPTH: replace any thin/generic paragraph with concrete substance — a real
+  example, a number, a worked case, a "why".
+- CLARITY: cut filler; make each paragraph teach one idea cleanly.
+- Keep what is already strong. Keep the SAME JSON schema (title, read, intro,
+  objectives, sections[{h,paras,code?,diagram?}], takeaways, flashcards, probe).
+
+Return the improved class as a single JSON object, no markdown. Output ONLY JSON."""
+
+
+def _refine(provider: LLMProvider, data: dict, subject: str, topic: str,
+            syllabus_topics: list[str] | None) -> dict:
+    """A self-review pass. Returns improved raw data, or the original on any doubt."""
+    try:
+        user = (f"Subject: {subject}\nClass: {topic}\n"
+                + ("Required syllabus topics:\n- " + "\n- ".join(syllabus_topics[:8]) + "\n\n"
+                   if syllabus_topics else "")
+                + "Your draft:\n" + json.dumps(data)[:7000])
+        raw = provider.complete(_REFINE_SYSTEM, [{"role": "user", "content": user}],
+                                max_tokens=7000, json=True)
+        improved = _parse(raw, subject, topic)
+        # Only accept a refinement that is at least as substantial as the draft.
+        if (improved.get("sections") and len(improved["sections"]) >= max(1, len(data.get("sections", [])) - 1)
+                and improved.get("probe")):
+            return improved
+    except Exception:  # noqa: BLE001 - refine is best-effort; never lose the draft
+        pass
+    return data
 
 
 def design_lesson(provider: LLMProvider, *, subject: str, topic: str, professor: str,
                   methodology: dict, sandbox: str = "python",
                   materials: str = "", syllabus_topics: list[str] | None = None,
-                  depth: str = "full") -> dict:
+                  depth: str = "full", refine: bool = False) -> dict:
     user = f"Subject: {subject}\nThe class to teach: {topic}"
     if syllabus_topics:
         user += "\nSyllabus context for this module:\n- " + "\n- ".join(syllabus_topics[:8])
@@ -121,6 +158,8 @@ def design_lesson(provider: LLMProvider, *, subject: str, topic: str, professor:
     raw = provider.complete(system, [{"role": "user", "content": user}],
                             max_tokens=7000 if full else 2500, json=True)
     data = _parse(raw, subject, topic)
+    if refine and full:
+        data = _refine(provider, data, subject, topic, syllabus_topics)
     lang, starter = _STARTERS.get(sandbox, _STARTERS["python"])
     return {
         "title": data["title"],
@@ -132,6 +171,7 @@ def design_lesson(provider: LLMProvider, *, subject: str, topic: str, professor:
         "objectives": [str(o) for o in (data.get("objectives") or [])][:5],
         "sections": _normalize_sections(data["sections"]),
         "takeaways": [str(t) for t in (data.get("takeaways") or [])][:5],
+        "flashcards": _normalize_flashcards(data.get("flashcards"), data, topic),
         "probe": data["probe"],
         "sandbox": sandbox,
         "code_language": lang,
@@ -158,6 +198,23 @@ def _normalize_sections(sections: list) -> list[dict]:
         if sec["paras"]:
             out.append(sec)
     return out
+
+
+def _normalize_flashcards(cards, data: dict, topic: str) -> list[dict]:
+    out = []
+    for c in (cards or []):
+        if isinstance(c, dict):
+            front, back = str(c.get("front", "")).strip(), str(c.get("back", "")).strip()
+            if front and back:
+                out.append({"front": front[:200], "back": back[:400]})
+    if not out:
+        # Derive from takeaways so review always has something to work with.
+        for t in (data.get("takeaways") or [])[:3]:
+            out.append({"front": f"Recall: {topic}", "back": str(t)[:400]})
+    if not out:
+        out.append({"front": f"What problem does {topic} solve?",
+                    "back": f"It is a core idea in this subject."})
+    return out[:5]
 
 
 def _parse(raw: str, subject: str, topic: str) -> dict:

@@ -55,6 +55,11 @@
     examSubmit: (exam_id, answers) => req('POST', '/api/exams/' + exam_id + '/submit', { answers }),
     catalogGenerate: (catalog_id) => req('POST', '/api/catalog/' + catalog_id + '/generate'),
     buildContinue: () => req('POST', '/api/build/continue'),
+    labGenerate: (subject, topic) => req('POST', '/api/lab/generate', { subject, topic }),
+    labComplete: (subject, score) => req('POST', '/api/lab/complete', { subject, score }),
+    reviewDue: () => req('GET', '/api/review'),
+    reviewCard: (card_id, grade) => req('POST', '/api/review', { card_id, grade }),
+    setProfile: (name, email) => req('PUT', '/api/profile', { name, email }),
     usage: () => req('GET', '/api/usage'),
     setBudget: (cap) => req('PUT', '/api/budget', { cap }),
     resetCollege: () => req('POST', '/api/reset'),
@@ -91,6 +96,7 @@
       D.NEXT_EXAM = s.NEXT_EXAM || null;
       D.BUILD = s.BUILD || null;
       D.USAGE = s.USAGE || null;
+      D.REVIEW = s.REVIEW || null;
       window.AULA_LIVE = true;
       localStorage.setItem('aula_enrolled', '1');
       window.dispatchEvent(new CustomEvent('aula:data'));

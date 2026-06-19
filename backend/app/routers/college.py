@@ -12,7 +12,7 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from .. import builder, db, store
-from ..agents import counselor, examiner, guide, professor, provost
+from ..agents import counselor, examiner, guide, lab, professor, provost
 from ..llm import build_provider, metered
 from ..schemas import (
     BudgetIn,
@@ -20,6 +20,10 @@ from ..schemas import (
     ExamGenerateIn,
     ExamSubmitIn,
     GuideIn,
+    LabCompleteIn,
+    LabGenerateIn,
+    ProfileIn,
+    ReviewIn,
 )
 
 log = logging.getLogger("aula.college")
@@ -141,7 +145,7 @@ def ask_guide(body: GuideIn):
         lesson = professor.design_lesson(
             p_provider, subject=subject["title"], topic=route["topic"],
             professor=prof_name, methodology=methodology, sandbox=sandbox,
-            materials=context)
+            materials=context, refine=True)
     except Exception as e:  # noqa: BLE001
         if p_provider.id != "mock":
             # A real model is configured — fail loudly, never silently demo.
@@ -345,6 +349,62 @@ def _subject_id_for(subject_title: str) -> str:
         return row["id"] if row else ""
 
 
+# --- labs / games ----------------------------------------------------------------
+
+@router.post("/lab/generate")
+def lab_generate(body: LabGenerateIn):
+    """Design (or return the cached) interactive lab for a class — JIT, bulk tier."""
+    subject_id = _subject_id_for(body.subject)
+    cached = db.get_lab(subject_id, body.topic)
+    if cached:
+        return {"lab": cached, "cached": True}
+
+    sandbox = builder._subject_sandbox(subject_id) if subject_id else "python"
+    context, _ = db.materials_context(subject_id, body.topic) if subject_id else ("", [])
+    provider = metered(build_provider(store.get_connector()), "professor",
+                       "design lab", tier="bulk")
+    spec = lab.design_lab(provider, subject=body.subject, topic=body.topic,
+                          materials=context, sandbox=sandbox)
+    spec["id"] = db.save_lab(subject_id, body.topic, spec)
+    return {"lab": spec, "cached": False, "using_mock": provider.id == "mock"}
+
+
+@router.post("/lab/complete")
+def lab_complete(body: LabCompleteIn):
+    """Finishing a lab rewards the learner: XP + mastery (never punitive)."""
+    score = max(0, min(100, body.score))
+    db.award_xp(20 + score // 5)
+    subject_id = _subject_id_for(body.subject)
+    if subject_id:
+        db.bump_mastery(subject_id, amount=0.05 + score / 1000)
+    prof = db.resolve_professor(subject=body.subject)
+    db.log_feed(prof["name"] if prof else "Lab",
+                f"Lab completed · {body.subject or 'practice'} · {score}%",
+                "pos" if score >= 60 else "neutral")
+    db.check_in()
+    return {"ok": True, "score": score}
+
+
+# --- spaced repetition -------------------------------------------------------------
+
+@router.get("/review")
+def review_due():
+    return {"cards": db.due_flashcards(limit=30), "counts": dict(
+        zip(("due", "total"), db.flashcard_counts()))}
+
+
+@router.post("/review")
+def review_grade(body: ReviewIn):
+    if body.grade not in ("again", "good", "easy"):
+        raise HTTPException(400, "grade must be again | good | easy")
+    ok = db.review_flashcard(body.card_id, body.grade)
+    if not ok:
+        raise HTTPException(404, "No such card.")
+    if body.grade != "again":
+        db.award_xp(2)
+    return {"ok": True, "counts": dict(zip(("due", "total"), db.flashcard_counts()))}
+
+
 # --- credits / budget ------------------------------------------------------------
 
 @router.get("/usage")
@@ -362,6 +422,21 @@ def set_budget(body: BudgetIn, background: BackgroundTasks):
         if total and ready < total:
             background.add_task(builder.build_college)
     return db.usage_summary()
+
+
+# --- account --------------------------------------------------------------------
+
+@router.get("/profile")
+def get_profile():
+    return {"account": db.get_account()}
+
+
+@router.put("/profile")
+def set_profile(body: ProfileIn):
+    if not body.email.strip():
+        raise HTTPException(400, "An email is required.")
+    db.set_account(body.name or body.email.split("@")[0], body.email)
+    return {"account": db.get_account()}
 
 
 # --- lifecycle --------------------------------------------------------------------

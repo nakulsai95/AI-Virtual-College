@@ -268,9 +268,82 @@ function MermaidBlock({ code, idx }){
   return <div ref={ref} style={{margin:'14px 0',padding:'14px',background:'rgba(255,255,255,.025)',border:'1px solid var(--line)',borderRadius:12,overflowX:'auto'}} />;
 }
 
+/* ---------- Narrated lecture mode: watch + listen (browser TTS, $0) ---------- */
+function buildSlides(L, terms){
+  const slides = [];
+  slides.push({ title:L.title, kind:'title',
+    bullets:(L.objectives||[]).slice(0,5),
+    script:`${L.title}. ${L.intro||''} ${ (L.objectives||[]).length?('In this class you will: '+L.objectives.join('; ')+'.'):''}` });
+  (L.sections||[]).forEach(s=>{
+    const paras = s.paras || (s.p?[s.p]:[]);
+    slides.push({ title:s.h, kind:'section',
+      bullets: paras.map(p=> p.length>160 ? p.slice(0,157)+'…' : p),
+      code:s.code, diagram:s.diagram,
+      script:`${s.h}. ${paras.join(' ')}` });
+  });
+  if((L.takeaways||[]).length) slides.push({ title:'Key takeaways', kind:'end',
+    bullets:L.takeaways, script:'To recap. '+L.takeaways.join('. ') });
+  return slides;
+}
+function LecturePlayer({ L, terms, onClose }){
+  const slides = buildSlides(L, terms);
+  const [i,setI] = useStateL(0);
+  const [playing,setPlaying] = useStateL(true);
+  const hasTTS = typeof window!=='undefined' && 'speechSynthesis' in window;
+  const s = slides[i];
+  const go = (n)=>{ setI(Math.max(0,Math.min(slides.length-1,n))); };
+  function speak(idx, autoadvance){
+    if(!hasTTS) return;
+    try{
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(slides[idx].script||slides[idx].title);
+      u.rate = 1.0;
+      u.onend = ()=>{ if(autoadvance && idx < slides.length-1) setI(idx+1); else if(idx>=slides.length-1) setPlaying(false); };
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  useEffectL(()=>{ if(playing) speak(i, true); else if(hasTTS){ try{window.speechSynthesis.cancel();}catch(e){} } },[i,playing]);
+  useEffectL(()=>()=>{ if(hasTTS){ try{window.speechSynthesis.cancel();}catch(e){} } },[]);
+  useEffectL(()=>{
+    const k=(e)=>{ if(e.key==='ArrowRight') go(i+1); if(e.key==='ArrowLeft') go(i-1); if(e.key==='Escape') onClose(); };
+    window.addEventListener('keydown',k); return ()=>window.removeEventListener('keydown',k);
+  },[i]);
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:200,background:'var(--bg)',display:'flex',flexDirection:'column'}}>
+      <div className="row" style={{justifyContent:'space-between',padding:'14px 22px',borderBottom:'1px solid var(--line)'}}>
+        <div className="row" style={{gap:10}}><span className="badge accent mono">▶ Lecture · {terms.professor} {L.author}</span><span className="faint mono" style={{fontSize:11}}>slide {i+1}/{slides.length}</span></div>
+        <button className="btn ghost" onClick={onClose}>✕ Exit lecture</button>
+      </div>
+      <div style={{flex:1,overflow:'auto',display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',padding:'30px 24px'}}>
+        <div style={{maxWidth:820,width:'100%'}}>
+          <div className="eyebrow" style={{marginBottom:14}}>{s.kind==='title'?'Lecture begins':s.kind==='end'?'Wrap up':L.subject}</div>
+          <h1 style={{fontSize:38,lineHeight:1.1,marginBottom:22}}>{s.title}</h1>
+          {(s.bullets||[]).map((b,j)=>(
+            <div key={j} className="row" style={{gap:12,marginBottom:14,alignItems:'flex-start'}}>
+              <span className="dot" style={{background:'var(--accent)',marginTop:10,flexShrink:0}}/>
+              <span style={{fontSize:18,lineHeight:1.5}}>{b}</span>
+            </div>
+          ))}
+          {s.code && s.code.snippet && <pre className="cc-code" style={{borderRadius:10,padding:'12px 14px',margin:'14px 0',whiteSpace:'pre-wrap'}}>{s.code.snippet}</pre>}
+          {s.diagram && <MermaidBlock code={s.diagram} idx={'lec'+i} />}
+        </div>
+      </div>
+      <div className="row" style={{justifyContent:'center',gap:12,padding:'16px 22px',borderTop:'1px solid var(--line)'}}>
+        <button className="btn ghost" onClick={()=>go(i-1)} disabled={i===0}>← Prev</button>
+        {hasTTS && <button className="btn ghost" onClick={()=>setPlaying(p=>!p)}>{playing?'⏸ Pause':'▶ Play'}</button>}
+        {i < slides.length-1
+          ? <button className="btn primary" onClick={()=>go(i+1)}>Next →</button>
+          : <button className="btn primary" onClick={onClose}>Finish</button>}
+      </div>
+      {!hasTTS && <div className="faint mono" style={{textAlign:'center',fontSize:11,paddingBottom:10}}>Narration unavailable in this browser — use Next/Prev to advance.</div>}
+    </div>
+  );
+}
+
 function LessonBody({ terms, nav, L }){
   const [ans,setAns] = useStateL('');
   const [sent,setSent] = useStateL(false);
+  const [lecture,setLecture] = useStateL(false);
   const [grade,setGrade] = useStateL(null);   // real Examiner result
   const [grading,setGrading] = useStateL(false);
   // Self-contained default so "Run" works for real against the Python sandbox.
@@ -301,16 +374,26 @@ function LessonBody({ terms, nav, L }){
     }
     setSent(true);
   }
+  if(lecture) return <LecturePlayer L={L} terms={terms} onClose={()=>setLecture(false)} />;
   return (
     <div className="screen-pad">
       <button className="btn ghost" style={{marginBottom:18,padding:'8px 14px',fontSize:13}} onClick={()=>nav('board')}>← Board</button>
       <div className="lesson">
         <div className="eyebrow" style={{marginBottom:14}}>{L.subject} · authored lesson</div>
         <h1 style={{fontSize:34,lineHeight:1.1}}>{L.title}</h1>
-        <div className="row" style={{gap:11,margin:'16px 0 26px'}}>
+        <div className="row" style={{gap:11,margin:'16px 0 18px'}}>
           <Avatar name={L.author} hue="#f5a623" size={34} />
           <div><b style={{fontFamily:'var(--font-d)',fontSize:13.5}}>{terms.professor} {L.author}</b><div className="faint mono" style={{fontSize:11}}>{L.read} read · wrote this for you</div></div>
         </div>
+
+        {/* This class — the parts a real course bundles together */}
+        <div className="row" style={{gap:8,marginBottom:24,flexWrap:'wrap'}}>
+          <button className="btn primary" style={{fontSize:13}} onClick={()=>setLecture(true)}>▶ Lecture mode</button>
+          <button className="btn ghost" style={{fontSize:13}} onClick={()=>nav('lab',{subject:L.subject,topic:L.title})}>🎮 Play the lab</button>
+          {L.refs && L.refs.length>0 && <span className="badge mono">📖 {L.refs.length} readings</span>}
+          <span className="badge mono">✓ probe below</span>
+        </div>
+
         <p className="lesson-intro">{L.intro}</p>
 
         {L.objectives && L.objectives.length>0 && (
@@ -752,8 +835,336 @@ function ProgressScreen({ terms, nav, data }){
   );
 }
 
+/* ---------- Lab / game (learn by playing) ---------- */
+function shuffle(a){ const r=a.slice(); for(let i=r.length-1;i>0;i--){ const j=Math.floor((i+1)* (Math.sin(i*99.7)*0.5+0.5)); const t=r[i]; r[i]=r[j]; r[j]=t; } return r; }
+function LabScreen({ terms, nav, data, payload }){
+  const { useState, useEffect } = React;
+  const subject = (payload && payload.subject) || (data.SUBJECTS[0]||{}).title || '';
+  const topic = (payload && payload.topic) || subject;
+  const [lab,setLab] = useState(null);
+  const [err,setErr] = useState('');
+  const [done,setDone] = useState(null);   // {score}
+  useEffect(()=>{
+    if(!window.AULA_API || !window.AULA_LIVE){ setErr('Connect the backend to play labs.'); return; }
+    window.AULA_API.labGenerate(subject, topic)
+      .then(r=>setLab(r.lab))
+      .catch(e=>setErr(String(e.message||e)));
+  },[subject,topic]);
+
+  function finish(score){
+    setDone({score});
+    if(window.AULA_API && window.AULA_LIVE) window.AULA_API.labComplete(subject, score).then(()=>window.AULA_API.hydrate()).catch(()=>{});
+  }
+
+  return (
+    <div className="screen-pad">
+      <button className="btn ghost" style={{marginBottom:18,padding:'8px 14px',fontSize:13}} onClick={()=>nav('library')}>← Library</button>
+      <div className="eyebrow" style={{marginBottom:8}}>{subject} · interactive lab</div>
+      <h1 style={{fontSize:28,marginBottom:6}}>{lab?lab.title:topic}</h1>
+      {err && <div className="card coral-note" style={{marginTop:14}}><p className="muted" style={{fontSize:13.5}}>{err}</p></div>}
+      {!lab && !err && <div className="card" style={{marginTop:14,padding:30,textAlign:'center'}}><p className="muted">The professor is designing your lab…</p></div>}
+      {done ? (
+        <div className={"card "+(done.score>=60?'mint-note':'coral-note')} style={{marginTop:16}}>
+          <b style={{fontFamily:'var(--font-d)',fontSize:16}}>{done.score>=60?'Nice — you’ve got it.':'Good attempt — run it again to lock it in.'}</b>
+          <div className="row" style={{gap:10,margin:'10px 0'}}>
+            <span className={"badge "+(done.score>=60?'mint':'coral')}>{done.score}%</span>
+            <span className="badge accent mono">+{20+Math.floor(done.score/5)} XP</span>
+          </div>
+          <button className="btn primary" onClick={()=>{setDone(null);setLab(null);window.AULA_API.labGenerate(subject,topic).then(r=>setLab(r.lab)).catch(()=>{});}}>Play again</button>
+          <button className="btn ghost" style={{marginLeft:8}} onClick={()=>nav('library')}>Back to library</button>
+        </div>
+      ) : lab && <LabRunner lab={lab} onFinish={finish} terms={terms} />}
+    </div>
+  );
+}
+function LabRunner({ lab, onFinish, terms }){
+  if(lab.kind==='steps') return <StepsGame lab={lab} onFinish={onFinish} />;
+  if(lab.kind==='scenario') return <ScenarioGame lab={lab} onFinish={onFinish} />;
+  if(lab.kind==='quiz') return <QuizGame lab={lab} onFinish={onFinish} />;
+  if(lab.kind==='match') return <MatchGame lab={lab} onFinish={onFinish} />;
+  if(lab.kind==='order') return <OrderGame lab={lab} onFinish={onFinish} />;
+  if(lab.kind==='bugfix') return <BugfixGame lab={lab} onFinish={onFinish} />;
+  return <div className="card" style={{marginTop:16,padding:20}}><p className="muted">This lab type isn’t supported yet.</p></div>;
+}
+/* steps — predict → reveal → learn the why, one stage at a time */
+function StepsGame({ lab, onFinish }){
+  const { useState } = React;
+  const steps = lab.steps||[];
+  const [i,setI] = useState(0); const [picked,setPicked] = useState(null); const [correct,setCorrect] = useState(0);
+  const s = steps[i];
+  const hasPredict = s && s.predict;
+  const revealed = !hasPredict || picked!==null;
+  const withPredict = steps.filter(x=>x.predict).length;
+  function choose(idx){ if(picked!==null) return; setPicked(idx); if(idx===s.predict.answer) setCorrect(c=>c+1); }
+  function next(){
+    if(i<steps.length-1){ setI(i+1); setPicked(null); }
+    else onFinish(withPredict? Math.round(correct/withPredict*100) : 100);
+  }
+  return (
+    <div className="card" style={{marginTop:16}}>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:12}}><span className="faint mono" style={{fontSize:11}}>{lab.intro}</span><span className="badge mono">stage {i+1}/{steps.length}</span></div>
+      <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:17,marginBottom:14}}>{s.stage}</div>
+      {hasPredict && (
+        <div style={{marginBottom:12}}>
+          <div className="eyebrow" style={{marginBottom:8}}>{s.predict.q}</div>
+          <div className="col" style={{gap:8}}>
+            {s.predict.options.map((o,idx)=>{
+              const isAns = idx===s.predict.answer;
+              return <button key={idx} className="btn ghost" style={{justifyContent:'flex-start',textAlign:'left',borderColor:revealed&&isAns?'var(--mint)':revealed&&idx===picked?'var(--coral)':'var(--line)'}} onClick={()=>choose(idx)}>{o}</button>;
+            })}
+          </div>
+        </div>
+      )}
+      {revealed && (
+        <div className="card mint-note" style={{padding:'12px 16px',marginTop:6}}>
+          <p style={{fontSize:13.5,lineHeight:1.5}}>{s.reveal}</p>
+        </div>
+      )}
+      {revealed && <button className="btn primary" style={{marginTop:14}} onClick={next}>{i<steps.length-1?'Next stage →':'Finish →'}</button>}
+    </div>
+  );
+}
+/* scenario — decide, then learn the consequence and the reasoning */
+function ScenarioGame({ lab, onFinish }){
+  const { useState } = React;
+  const rounds = lab.rounds||[];
+  const [i,setI] = useState(0); const [picked,setPicked] = useState(null); const [correct,setCorrect] = useState(0);
+  const r = rounds[i];
+  function choose(idx){ if(picked!==null) return; setPicked(idx); if(r.choices[idx].correct) setCorrect(c=>c+1); }
+  function next(){ if(i<rounds.length-1){ setI(i+1); setPicked(null); } else onFinish(Math.round(correct/rounds.length*100)); }
+  return (
+    <div className="card" style={{marginTop:16}}>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:12}}><span className="faint mono" style={{fontSize:11}}>{lab.intro}</span><span className="badge mono">{i+1}/{rounds.length}</span></div>
+      <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:16,marginBottom:14,lineHeight:1.4}}>{r.situation}</div>
+      <div className="col" style={{gap:8}}>
+        {r.choices.map((c,idx)=>{
+          const reveal = picked!==null;
+          return (
+            <div key={idx}>
+              <button className="btn ghost" style={{width:'100%',justifyContent:'flex-start',textAlign:'left',borderColor:reveal?(c.correct?'var(--mint)':(idx===picked?'var(--coral)':'var(--line)')):'var(--line)'}} onClick={()=>choose(idx)}>
+                {reveal && (c.correct?'✓ ':(idx===picked?'✗ ':''))}{c.text}
+              </button>
+              {reveal && (idx===picked || c.correct) && c.why && <p className="muted" style={{fontSize:12.5,margin:'6px 0 4px 12px'}}>{c.why}</p>}
+            </div>
+          );
+        })}
+      </div>
+      {picked!==null && <button className="btn primary" style={{marginTop:14}} onClick={next}>{i<rounds.length-1?'Next situation →':'See result →'}</button>}
+    </div>
+  );
+}
+function QuizGame({ lab, onFinish }){
+  const { useState } = React;
+  const qs = lab.questions||[];
+  const [i,setI] = useState(0); const [picked,setPicked] = useState(null); const [correct,setCorrect] = useState(0);
+  const q = qs[i];
+  function choose(idx){ if(picked!==null) return; setPicked(idx); if(idx===q.answer) setCorrect(c=>c+1); }
+  function next(){ if(i<qs.length-1){ setI(i+1); setPicked(null); } else { onFinish(Math.round((correct + (picked===q.answer?0:0))/qs.length*100)); } }
+  return (
+    <div className="card" style={{marginTop:16}}>
+      <div className="row" style={{justifyContent:'space-between',marginBottom:10}}><span className="faint mono" style={{fontSize:11}}>{lab.intro}</span><span className="badge mono">{i+1}/{qs.length}</span></div>
+      <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:17,marginBottom:14}}>{q.q}</div>
+      <div className="col" style={{gap:8}}>
+        {q.options.map((o,idx)=>{
+          const reveal = picked!==null;
+          const isAns = idx===q.answer;
+          const cls = reveal ? (isAns?'mint':(idx===picked?'coral':'')) : '';
+          return <button key={idx} className={"btn ghost "+cls} style={{justifyContent:'flex-start',textAlign:'left',borderColor:reveal&&isAns?'var(--mint)':reveal&&idx===picked?'var(--coral)':'var(--line)'}} onClick={()=>choose(idx)}>{o}</button>;
+        })}
+      </div>
+      {picked!==null && (
+        <div style={{marginTop:14}}>
+          <p className="muted" style={{fontSize:13}}>{q.explain}</p>
+          <button className="btn primary" style={{marginTop:10}} onClick={next}>{i<qs.length-1?'Next →':'See result →'}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+function MatchGame({ lab, onFinish }){
+  const { useState } = React;
+  const pairs = lab.pairs||[];
+  const [rights] = useState(()=>shuffle(pairs.map((p,i)=>({...p,i}))));
+  const [selLeft,setSelLeft] = useState(null);
+  const [matched,setMatched] = useState({}); const [wrong,setWrong] = useState(0);
+  function clickRight(r){
+    if(selLeft===null) return;
+    if(pairs[selLeft].right===r.right){ const m={...matched,[selLeft]:true}; setMatched(m); setSelLeft(null);
+      if(Object.keys(m).length===pairs.length) onFinish(Math.max(20,Math.round(100 - wrong*10))); }
+    else { setWrong(w=>w+1); setSelLeft(null); }
+  }
+  return (
+    <div className="card" style={{marginTop:16}}>
+      <div className="faint mono" style={{fontSize:11,marginBottom:12}}>{lab.intro} · click a term, then its match</div>
+      <div className="grid" style={{gridTemplateColumns:'1fr 1fr',gap:10}}>
+        <div className="col" style={{gap:8}}>
+          {pairs.map((p,idx)=>(
+            <button key={idx} className={"btn ghost"+(selLeft===idx?' on':'')} disabled={matched[idx]} style={{opacity:matched[idx]?.4:1,justifyContent:'flex-start',borderColor:selLeft===idx?'var(--accent)':'var(--line)'}} onClick={()=>setSelLeft(idx)}>{p.left}</button>
+          ))}
+        </div>
+        <div className="col" style={{gap:8}}>
+          {rights.map((r)=>{
+            const used = Object.keys(matched).some(k=>pairs[k].right===r.right);
+            return <button key={r.i} className="btn ghost" disabled={used} style={{opacity:used?.4:1,justifyContent:'flex-start'}} onClick={()=>clickRight(r)}>{r.right}</button>;
+          })}
+        </div>
+      </div>
+      <div className="faint mono" style={{fontSize:11,marginTop:12}}>{Object.keys(matched).length}/{pairs.length} matched{wrong?` · ${wrong} misses`:''}</div>
+    </div>
+  );
+}
+function OrderGame({ lab, onFinish }){
+  const { useState } = React;
+  const correct = lab.steps||[];
+  const [order,setOrder] = useState(()=>shuffle(correct.map((s,i)=>({s,i}))));
+  const [checked,setChecked] = useState(false);
+  function move(idx,dir){ const j=idx+dir; if(j<0||j>=order.length) return; const o=order.slice(); const t=o[idx]; o[idx]=o[j]; o[j]=t; setOrder(o); setChecked(false); }
+  const [score,setScore] = useState(null);
+  function check(){ setChecked(true); const sc=Math.round(order.filter((o,idx)=>o.i===idx).length/correct.length*100); setScore(sc); onFinish(sc); }
+  return (
+    <div className="card" style={{marginTop:16}}>
+      <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:15,marginBottom:12}}>{lab.prompt}</div>
+      <div className="col" style={{gap:8}}>
+        {order.map((o,idx)=>(
+          <div key={o.i} className="row" style={{gap:8,alignItems:'center',padding:'10px 12px',background:'rgba(255,255,255,.03)',border:'1px solid '+(checked?(o.i===idx?'var(--mint)':'var(--coral)'):'var(--line)'),borderRadius:10}}>
+            <span className="mono faint" style={{fontSize:12,minWidth:20}}>{idx+1}</span>
+            <span style={{flex:1,fontSize:13.5}}>{o.s}</span>
+            <button className="mini-btn" onClick={()=>move(idx,-1)} disabled={idx===0}>↑</button>
+            <button className="mini-btn" onClick={()=>move(idx,1)} disabled={idx===order.length-1}>↓</button>
+          </div>
+        ))}
+      </div>
+      <button className="btn primary" style={{marginTop:14}} onClick={check}>Check order →</button>
+      {checked && lab.explain && <div className="card mint-note" style={{padding:'12px 16px',marginTop:12}}><p style={{fontSize:13.5,lineHeight:1.5}}>{lab.explain}</p></div>}
+    </div>
+  );
+}
+function BugfixGame({ lab, onFinish }){
+  const { useState } = React;
+  const [code,setCode] = useState(lab.broken_code||'');
+  const [out,setOut] = useState(null); const [running,setRunning] = useState(false); const [passed,setPassed] = useState(false);
+  function run(){
+    setRunning(true); setOut(null);
+    window.AULA_API.runCode(lab.language||'python', code)
+      .then(r=>{ setRunning(false); const txt=[(r.stdout||'').trim(), r.stderr?('— '+r.stderr.trim()):''].filter(Boolean).join('\n'); setOut(txt||'(no output)');
+        const ok = r.ok && (!lab.check || (r.stdout||'').includes(lab.check)); setPassed(ok); if(ok) onFinish(100); })
+      .catch(()=>{ setRunning(false); setOut('Sandbox offline.'); });
+  }
+  return (
+    <div className="card" style={{marginTop:16}}>
+      <div className="faint mono" style={{fontSize:11,marginBottom:6}}>🐞 {lab.task||'Fix the bug so it runs correctly.'}</div>
+      <textarea className="cc-code" spellCheck={false} value={code} onChange={e=>setCode(e.target.value)} rows={10} style={{width:'100%',borderRadius:10,padding:'12px 14px'}} />
+      <div className="row" style={{justifyContent:'space-between',marginTop:10}}>
+        <span className="faint mono" style={{fontSize:11}}>{passed?'✓ fixed!':lab.check?('target output contains: '+lab.check):'make it run'}</span>
+        <button className="btn primary" onClick={run} disabled={running}>{running?'Running…':'▶ Run & check'}</button>
+      </div>
+      {out && <pre className="cc-out">{out}</pre>}
+    </div>
+  );
+}
+
+/* ---------- Review (spaced repetition) ---------- */
+function ReviewScreen({ terms, nav, data }){
+  const { useState, useEffect } = React;
+  const [cards,setCards] = useState(null);
+  const [i,setI] = useState(0); const [flipped,setFlipped] = useState(false); const [reviewed,setReviewed] = useState(0);
+  useEffect(()=>{
+    if(!window.AULA_API || !window.AULA_LIVE){ setCards([]); return; }
+    window.AULA_API.reviewDue().then(r=>setCards(r.cards)).catch(()=>setCards([]));
+  },[]);
+  if(cards===null) return <div className="screen-pad"><div className="card" style={{padding:30,textAlign:'center'}}><p className="muted">Loading your review…</p></div></div>;
+  if(!cards.length || i>=cards.length){
+    return (
+      <div className="screen-pad">
+        <h1 style={{fontSize:26}}>Review</h1>
+        <div className="card mint-note" style={{marginTop:16}}>
+          <b style={{fontFamily:'var(--font-d)',fontSize:15}}>{reviewed?`Done — ${reviewed} cards reviewed.`:'Nothing due right now.'}</b>
+          <p className="muted" style={{fontSize:13.5,marginTop:6}}>Flashcards are written into every class. They come back on a spaced schedule so what you learn actually sticks. Read more classes to grow your review deck.</p>
+          <button className="btn primary" style={{marginTop:12}} onClick={()=>nav('library')}>Go to the library →</button>
+        </div>
+      </div>
+    );
+  }
+  const card = cards[i];
+  function rate(grade){
+    if(window.AULA_API) window.AULA_API.reviewCard(card.id, grade).then(()=>window.AULA_API.hydrate()).catch(()=>{});
+    setReviewed(r=>r+1); setFlipped(false); setI(i+1);
+  }
+  return (
+    <div className="screen-pad">
+      <div className="row" style={{justifyContent:'space-between',marginBottom:16}}>
+        <div><h1 style={{fontSize:26}}>Review</h1><p className="muted" style={{fontSize:14,marginTop:4}}>Spaced repetition · {cards.length-i} due</p></div>
+        <span className="badge accent mono">{i+1}/{cards.length}</span>
+      </div>
+      <div className="card" style={{minHeight:220,display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',textAlign:'center',padding:40,cursor:'pointer'}} onClick={()=>setFlipped(f=>!f)}>
+        <div className="faint mono" style={{fontSize:11,marginBottom:12}}>{card.subject||''} · {flipped?'answer':'question — click to flip'}</div>
+        <div style={{fontFamily:'var(--font-d)',fontWeight:600,fontSize:flipped?18:20,lineHeight:1.4}}>{flipped?card.back:card.front}</div>
+      </div>
+      {flipped ? (
+        <div className="row" style={{gap:10,marginTop:16,justifyContent:'center'}}>
+          <button className="btn ghost" style={{borderColor:'var(--coral)'}} onClick={()=>rate('again')}>Again</button>
+          <button className="btn ghost" onClick={()=>rate('good')}>Good</button>
+          <button className="btn primary" onClick={()=>rate('easy')}>Easy</button>
+        </div>
+      ) : (
+        <div className="row" style={{justifyContent:'center',marginTop:16}}>
+          <button className="btn primary" onClick={()=>setFlipped(true)}>Show answer</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Transcript (GPA + degree) ---------- */
+function TranscriptScreen({ terms, nav, data }){
+  const exams = (data.EXAMS||[]).filter(e=>e.status==='passed'||e.status==='failed');
+  const scored = exams.filter(e=>typeof e.score==='number');
+  const gpa = scored.length ? (scored.reduce((a,e)=>a+e.score,0)/scored.length) : 0;
+  const letter = gpa>=90?'A':gpa>=80?'A−':gpa>=70?'B':gpa>=60?'C':'—';
+  const subjects = data.SUBJECTS||[];
+  const allDone = subjects.length>0 && subjects.every(s=>s.modules.every(m=>m.status==='done'));
+  const passedAll = exams.length>0 && exams.every(e=>e.status==='passed');
+  const conferred = allDone && passedAll;
+  return (
+    <div className="screen-pad">
+      <div className="row" style={{justifyContent:'space-between',alignItems:'flex-end',marginBottom:18,flexWrap:'wrap',gap:12}}>
+        <div><div className="eyebrow" style={{marginBottom:8}}>Official transcript · {data.STUDENT.name}</div><h1 style={{fontSize:26}}>{data.STUDENT.mission}</h1></div>
+        <div style={{textAlign:'right'}}><div style={{fontFamily:'var(--font-d)',fontWeight:700,fontSize:28,color:gpa>=80?'var(--mint)':'var(--accent)'}}>{gpa?gpa.toFixed(0):'—'}<span className="faint" style={{fontSize:14}}>/100</span></div><div className="faint mono" style={{fontSize:10}}>GPA · {letter}</div></div>
+      </div>
+
+      {conferred && (
+        <div className="card mint-note" style={{marginBottom:18,textAlign:'center',padding:28}}>
+          <div style={{fontSize:34,marginBottom:8}}>🎓</div>
+          <b style={{fontFamily:'var(--font-d)',fontSize:18}}>Degree conferred</b>
+          <p className="muted" style={{fontSize:13.5,marginTop:6}}>You completed every module and passed every exam. {terms.principal} {(data.FACULTY.find(f=>f.role==='principal')||{}).name||''} signs off on “{data.STUDENT.mission}”.</p>
+        </div>
+      )}
+
+      {subjects.map(s=>{
+        const done = s.modules.filter(m=>m.status==='done').length;
+        const subjExams = exams.filter(e=>e.subject===s.title);
+        return (
+          <div key={s.id} className="card" style={{marginBottom:12}}>
+            <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
+              <div className="row" style={{gap:10}}><Avatar name={s.profName} hue={s.hue} size={30} sq/><div><b style={{fontFamily:'var(--font-d)',fontSize:14.5}}>{s.title}</b><div className="faint mono" style={{fontSize:11}}>{terms.professor} {s.profName} · {done}/{s.modules.length} modules</div></div></div>
+              <div style={{width:120}}><Bar value={done} max={Math.max(1,s.modules.length)} /></div>
+            </div>
+            {subjExams.length>0 && (
+              <div className="row" style={{gap:8,flexWrap:'wrap',marginTop:8}}>
+                {subjExams.map(e=><span key={e.id} className={"badge "+(e.status==='passed'?'mint':'coral')+" mono"}>{e.title}: {e.score}%</span>)}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {!subjects.length && <div className="muted" style={{padding:20}}>No subjects yet — onboard to start your degree.</div>}
+    </div>
+  );
+}
+
 Object.assign(window, {
   SCR_home:Dashboard, SCR_board:MyBoard, SCR_lesson:LessonScreen,
   SCR_guide:GuideScreen, SCR_channel:ChannelScreen, SCR_library:LibraryScreen,
-  SCR_progress:ProgressScreen, SCR_curriculum:CurriculumScreen
+  SCR_progress:ProgressScreen, SCR_curriculum:CurriculumScreen,
+  SCR_lab:LabScreen, SCR_review:ReviewScreen, SCR_transcript:TranscriptScreen
 });

@@ -128,6 +128,15 @@ CREATE TABLE IF NOT EXISTS catalog(
   topic TEXT, position INTEGER DEFAULT 0, status TEXT DEFAULT 'planned',
   lesson_id INTEGER, created_at REAL
 );
+CREATE TABLE IF NOT EXISTS flashcards(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, subject_id TEXT DEFAULT '',
+  lesson_id INTEGER, front TEXT, back TEXT, ease REAL DEFAULT 2.3,
+  interval_days REAL DEFAULT 0, due_at REAL, reps INTEGER DEFAULT 0, created_at REAL
+);
+CREATE TABLE IF NOT EXISTS labs(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, subject_id TEXT, topic TEXT,
+  kind TEXT, spec TEXT, created_at REAL
+);
 CREATE TABLE IF NOT EXISTS config(key TEXT PRIMARY KEY, value TEXT);
 """
 
@@ -169,7 +178,7 @@ def reset_college() -> None:
     with connect() as c:
         for t in ("college", "student", "faculty", "subjects", "modules", "mastery",
                   "lessons", "board", "exams", "channels", "messages", "feed",
-                  "materials", "catalog"):
+                  "materials", "catalog", "flashcards", "labs"):
             c.execute(f"DELETE FROM {t}")
         c.execute("DELETE FROM config WHERE key='build_status'")
 
@@ -197,6 +206,26 @@ def budget_cap() -> float:
 
 def set_budget_cap(cap: float) -> None:
     set_config("budget_cap", str(max(0.0, cap)))
+
+
+def get_account() -> dict | None:
+    raw = get_config("account", "")
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+
+def set_account(name: str, email: str) -> None:
+    set_config("account", json.dumps({"name": name.strip(), "email": email.strip()}))
+    # Reflect onto the live student profile if a college already exists.
+    handle = "@" + email.split("@")[0] if "@" in email else "@you"
+    with connect() as c:
+        if c.execute("SELECT 1 FROM student WHERE id=1").fetchone():
+            c.execute("UPDATE student SET name=?, handle=? WHERE id=1",
+                      (name.strip() or "You", handle))
 
 
 def usage_total() -> float:
@@ -291,11 +320,20 @@ def materials_context(subject_id: str, topic: str = "",
     if not rows:
         return "", []
     words = set(re.findall(r"[a-z]{3,}", (topic or "").lower()))
+    # Textbooks/articles with real scraped text are worth most; title hits count
+    # double (a source literally about the topic), then body hits.
+    KIND_WEIGHT = {"textbook": 4, "article": 3, "paper": 2, "book": 2,
+                   "link": 1, "curriculum": 1}
 
     def relevance(m: dict) -> int:
-        text = (m["title"] + " " + (m.get("content") or m["summary"] or "")[:1500]).lower()
-        depth = 2 if m.get("content") else 1 if m["summary"] else 0
-        return sum(2 for w in words if w in text) + depth
+        title_l = m["title"].lower()
+        body_l = (m.get("content") or m["summary"] or "")[:2000].lower()
+        score = KIND_WEIGHT.get(m["kind"], 1)
+        score += sum(3 for w in words if w in title_l)
+        score += sum(1 for w in words if w in body_l)
+        if m.get("content"):
+            score += 3
+        return score
 
     rows.sort(key=relevance, reverse=True)
     top = rows[:limit]
@@ -304,13 +342,37 @@ def materials_context(subject_id: str, topic: str = "",
         line = f"- [{m['kind']}] {m['title']}"
         if m["authors"]:
             line += f" — {m['authors']}"
-        # Full scraped text (textbooks, articles) beats a one-line summary.
-        body = (m.get("content") or "")[:900] or (m["summary"] or "")[:400]
+        # Pull the slice of a long text that actually discusses this topic.
+        body = _relevant_window(m.get("content") or "", words, 1100) or (m["summary"] or "")[:400]
         if body:
             line += f". {body}"
         lines.append(line)
     refs = [{"title": m["title"], "url": m["url"], "kind": m["kind"]} for m in top]
     return "\n".join(lines), refs
+
+
+def _relevant_window(content: str, words: set, width: int) -> str:
+    """Return the ~width-char slice of `content` densest in topic words.
+    Falls back to the head of the text when nothing matches."""
+    content = content or ""
+    if len(content) <= width:
+        return content
+    if not words:
+        return content[:width]
+    low = content.lower()
+    best_pos, best_hits = 0, -1
+    step = max(1, width // 3)
+    for start in range(0, len(low) - 1, step):
+        window = low[start:start + width]
+        hits = sum(window.count(w) for w in words)
+        if hits > best_hits:
+            best_hits, best_pos = hits, start
+    if best_hits <= 0:
+        return content[:width]
+    # Snap to a word boundary so we don't start mid-word.
+    snap = content.rfind(" ", 0, best_pos) if best_pos else 0
+    start = snap + 1 if snap > 0 else best_pos
+    return content[start:start + width].strip()
 
 
 # --- onboarding seed ------------------------------------------------------
@@ -327,7 +389,11 @@ def seed_from_curriculum(curriculum: dict, goal: str, level: str) -> None:
                   "VALUES(1,?,?,?,?,?,?)",
                   (goal, level, curriculum.get("mission", goal),
                    int(curriculum.get("weeks", 12)), curriculum.get("summary", ""), now))
-        c.execute("INSERT INTO student(id,level) VALUES(1,?)", (level,))
+        acct = get_account() or {}
+        sname = (acct.get("name") or "").strip() or "You"
+        shandle = ("@" + acct["email"].split("@")[0]) if acct.get("email") and "@" in acct["email"] else "@you"
+        c.execute("INSERT INTO student(id,level,name,handle) VALUES(1,?,?,?)",
+                  (level, sname, shandle))
 
         prof_i = 0
         for f in faculty:
@@ -555,6 +621,13 @@ def add_lesson(lesson: dict, subject_id: str = "", board_card: bool = True,
              json.dumps(lesson.get("objectives", [])),
              json.dumps(lesson.get("takeaways", []))))
         lesson_id = cur.lastrowid
+        # Spaced-repetition cards (authored inside the lesson — no extra LLM call).
+        for card in (lesson.get("flashcards") or [])[:5]:
+            front, back = str(card.get("front", "")).strip(), str(card.get("back", "")).strip()
+            if front and back:
+                c.execute("INSERT INTO flashcards(subject_id,lesson_id,front,back,ease,"
+                          "interval_days,due_at,reps,created_at) VALUES(?,?,?,?,2.3,0,?,0,?)",
+                          (subject_id, lesson_id, front, back, now, now))
         if board_card:
             c.execute("INSERT INTO board(col,type,title,subject,meta,tool,lesson_id,created_at) "
                       "VALUES('lessons','lesson',?,?,?,0,?,?)",
@@ -691,6 +764,70 @@ def module_topics(module_id: str) -> list[str]:
         return []
 
 
+# --- spaced repetition (SM-2-lite) --------------------------------------------
+
+def due_flashcards(limit: int = 30) -> list[dict]:
+    now = time.time()
+    with connect() as c:
+        rows = c.execute(
+            "SELECT f.id, f.front, f.back, f.reps, s.title AS subject "
+            "FROM flashcards f LEFT JOIN subjects s ON s.id = f.subject_id "
+            "WHERE f.due_at <= ? ORDER BY f.due_at LIMIT ?", (now, limit)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def review_flashcard(card_id: int, grade: str) -> bool:
+    """Reschedule a card. grade ∈ {again, good, easy}. SM-2-lite."""
+    now = time.time()
+    with connect() as c:
+        row = c.execute("SELECT * FROM flashcards WHERE id=?", (card_id,)).fetchone()
+        if not row:
+            return False
+        ease, interval, reps = row["ease"], row["interval_days"], row["reps"]
+        if grade == "again":
+            ease = max(1.3, ease - 0.2)
+            interval = 0.007  # ~10 minutes
+        elif grade == "easy":
+            ease = ease + 0.15
+            interval = (interval or 1) * ease * 1.3 if reps else 4
+        else:  # good
+            interval = (interval or 1) * ease if reps else 1
+        due_at = now + interval * 86400
+        c.execute("UPDATE flashcards SET ease=?, interval_days=?, due_at=?, reps=reps+1 "
+                  "WHERE id=?", (ease, interval, due_at, card_id))
+    return True
+
+
+def flashcard_counts() -> tuple[int, int]:
+    now = time.time()
+    with connect() as c:
+        row = c.execute("SELECT SUM(CASE WHEN due_at <= ? THEN 1 ELSE 0 END) AS due, "
+                        "COUNT(*) AS total FROM flashcards", (now,)).fetchone()
+    return (row["due"] or 0, row["total"] or 0)
+
+
+# --- labs / games -------------------------------------------------------------
+
+def get_lab(subject_id: str, topic: str) -> dict | None:
+    with connect() as c:
+        row = c.execute("SELECT * FROM labs WHERE subject_id=? AND topic=? "
+                        "ORDER BY id DESC LIMIT 1", (subject_id, topic)).fetchone()
+    if not row:
+        return None
+    spec = json.loads(row["spec"] or "{}")
+    spec["id"] = row["id"]
+    return spec
+
+
+def save_lab(subject_id: str, topic: str, spec: dict) -> int:
+    with connect() as c:
+        cur = c.execute("INSERT INTO labs(subject_id,topic,kind,spec,created_at) "
+                        "VALUES(?,?,?,?,?)",
+                        (subject_id, topic, spec.get("kind", "quiz"),
+                         json.dumps(spec), time.time()))
+        return cur.lastrowid
+
+
 # --- exams -------------------------------------------------------------------
 
 def next_exam_module() -> dict | None:
@@ -804,7 +941,7 @@ def enrolled() -> bool:
 def ui_state() -> dict:
     """Everything the frontend renders, in the exact shapes the screens read."""
     if not enrolled():
-        return {"enrolled": False}
+        return {"enrolled": False, "ACCOUNT": get_account()}
 
     with connect() as c:
         college = dict(c.execute("SELECT * FROM college WHERE id=1").fetchone())
@@ -974,6 +1111,7 @@ def ui_state() -> dict:
         "LESSON": latest_lesson(),
         "NEXT_EXAM": next_exam_module(),
         "BUILD": build_status(),
+        "REVIEW": dict(zip(("due", "total"), flashcard_counts())),
         "USAGE": {"used": usage["used"], "cap": usage["cap"], "remaining": usage["remaining"]},
     }
 

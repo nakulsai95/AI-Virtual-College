@@ -126,6 +126,26 @@ class BudgetIn(BaseModel):
     cap: float
 
 
+class LabGenerateIn(BaseModel):
+    subject: str
+    topic: str
+
+
+class LabCompleteIn(BaseModel):
+    subject: str = ""
+    score: int = 0
+
+
+class ReviewIn(BaseModel):
+    card_id: int
+    grade: str = "good"  # again | good | easy
+
+
+class ProfileIn(BaseModel):
+    name: str = ""
+    email: str = ""
+
+
 # ---- Sandbox ----------------------------------------------------------
 
 class SandboxIn(BaseModel):

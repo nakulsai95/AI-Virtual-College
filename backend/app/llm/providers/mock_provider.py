@@ -28,6 +28,8 @@ class MockProvider(LLMProvider):
         # prompt also contains the word "professor").
         if "design an exam" in sys_l:
             return _demo_exam_json(user)
+        if "you are the lab designer" in sys_l:
+            return _demo_lab_json(user)
         if "detailed academic" in sys_l and "syllabus" in sys_l:
             return _demo_syllabus_json(user)
         if "quality pass" in sys_l:
@@ -69,6 +71,7 @@ def _demo_grade_json(answer: str) -> str:
 def _demo_lesson_json(prompt: str) -> str:
     import re
     m = re.search(r"the class to teach:\s*(.+)", prompt, re.IGNORECASE) \
+        or re.search(r"^class:\s*(.+)", prompt, re.IGNORECASE | re.MULTILINE) \
         or re.search(r"topic the learner asked about:\s*(.+)", prompt, re.IGNORECASE)
     topic = (m.group(1).strip().splitlines()[0] if m else prompt.strip()) or "the topic"
     title = topic[:60].strip().title()
@@ -100,6 +103,11 @@ def _demo_lesson_json(prompt: str) -> str:
         "takeaways": [f"{title} solves a real problem — know which one",
                       "Worked examples beat definitions",
                       "Predict before you run"],
+        "flashcards": [
+            {"front": f"What is {topic}?", "back": f"A core idea in this subject — {title}."},
+            {"front": f"Why does {topic} matter?", "back": "It unlocks the next module in your plan."},
+            {"front": "Best way to learn it?", "back": "Work the example, then explain it back."},
+        ],
         "probe": {"q": f"In your own words, what problem does {topic} solve?",
                   "hint": "Think about what would break without it."},
     })
@@ -119,6 +127,38 @@ def _demo_exam_json(prompt: str) -> str:
         {"q": f"How would you explain {topic} to a beginner in two sentences?",
          "hint": "Plain words beat jargon."},
     ]})
+
+
+def _demo_lab_json(prompt: str) -> str:
+    import re
+    m = re.search(r"class topic:\s*(.+)", prompt, re.IGNORECASE)
+    topic = (m.group(1).strip().splitlines()[0] if m else "this class")
+    # A teach-through-play "steps" game: predict, then learn the why at each stage.
+    return json.dumps({
+        "kind": "steps", "title": f"{topic} — learn by playing",
+        "intro": f"Walk through how {topic} works — predict each step, then see why.",
+        "steps": [
+            {"stage": f"We start with the problem {topic} addresses.",
+             "predict": {"q": "What should come first?",
+                         "options": ["Understand the problem", "Jump to the answer"],
+                         "answer": 0},
+             "reveal": f"Right — every idea like {topic} starts from a real problem. "
+                       "Name the problem and the rest follows. (Demo lab — connect a "
+                       "model for a richer, topic-specific game.)"},
+            {"stage": "Now we apply the core idea to that problem.",
+             "predict": {"q": "How do we make it stick?",
+                         "options": ["Read once quickly", "Work a concrete example"],
+                         "answer": 1},
+             "reveal": "Working an example turns an abstract rule into something you "
+                       "can actually do — that's where understanding forms."},
+            {"stage": "Finally we check where it breaks.",
+             "predict": {"q": "Why look at edge cases?",
+                         "options": ["To memorize trivia", "Edge cases reveal the real boundaries"],
+                         "answer": 1},
+             "reveal": "Knowing where an idea stops working is how you know where it "
+                       "DOES work — that's mastery, not memorization."},
+        ],
+    })
 
 
 def _demo_syllabus_json(prompt: str) -> str:

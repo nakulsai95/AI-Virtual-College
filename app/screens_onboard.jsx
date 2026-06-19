@@ -244,4 +244,51 @@ function Review({ terms, goal, level, onEnroll, onRevise }){
   );
 }
 
-Object.assign(window, { Onboarding });
+/* ---------- Sign in (local Gmail profile — demo account, no setup) ---------- */
+function SignIn({ terms, mark, onSignedIn, themeSwitch }){
+  const [step,setStep] = useStateO('start');   // start | form
+  const [name,setName] = useStateO('');
+  const [email,setEmail] = useStateO('');
+  const [busy,setBusy] = useStateO(false);
+  const valid = /\S+@\S+\.\S+/.test(email.trim());
+  function finish(){
+    if(!valid || busy) return;
+    setBusy(true);
+    const account = { name: name.trim() || email.split('@')[0], email: email.trim() };
+    localStorage.setItem('aula_account', JSON.stringify(account));
+    const done = ()=>{ onSignedIn(account); };
+    if(window.AULA_API) window.AULA_API.setProfile(account.name, account.email).then(done).catch(done);
+    else done();
+  }
+  return (
+    <div className="onb">
+      <div className="onb-top">
+        <div className="onb-brand"><span className="sb-mark">{mark}</span>{terms.college}</div>
+        {themeSwitch}
+      </div>
+      <div className="intake" style={{maxWidth:460,textAlign:'center'}}>
+        <div className="sb-mark" style={{width:64,height:64,fontSize:30,margin:'0 auto 22px',display:'flex',alignItems:'center',justifyContent:'center'}}>{mark}</div>
+        <h1 style={{fontSize:30}}>Welcome to <span className="g">{terms.college.replace(/^The /,'')}</span></h1>
+        <p className="lede" style={{margin:'10px auto 26px'}}>Your AI-run college. Sign in to enrol — your faculty, curriculum and progress are saved to your account.</p>
+
+        {step==='start' ? (
+          <button className="btn" style={{width:'100%',justifyContent:'center',gap:12,background:'#fff',color:'#222',fontWeight:600,padding:'13px',border:'1px solid #dadce0'}} onClick={()=>setStep('form')}>
+            <span style={{fontFamily:'arial',fontWeight:700,fontSize:18}}><span style={{color:'#4285F4'}}>G</span><span style={{color:'#EA4335'}}>o</span><span style={{color:'#FBBC05'}}>o</span><span style={{color:'#4285F4'}}>g</span><span style={{color:'#34A853'}}>l</span><span style={{color:'#EA4335'}}>e</span></span>
+            Continue with Google
+          </button>
+        ) : (
+          <div className="intake-box" style={{textAlign:'left'}}>
+            <label className="conn-label">Your name</label>
+            <input className="conn-input" value={name} onChange={e=>setName(e.target.value)} placeholder="Alex Rivera" />
+            <label className="conn-label" style={{marginTop:12}}>Gmail address</label>
+            <input className="conn-input mono" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&finish()} placeholder="you@gmail.com" />
+            <button className="btn primary" style={{width:'100%',justifyContent:'center',marginTop:16}} onClick={finish} disabled={!valid||busy}>{busy?'Signing in…':'Sign in →'}</button>
+            <p className="faint mono" style={{fontSize:11,marginTop:12,textAlign:'center'}}>Demo profile — stored locally on your machine, no password.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Onboarding, SignIn });

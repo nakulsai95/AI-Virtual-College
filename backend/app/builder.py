@@ -194,17 +194,19 @@ def _content_factory(principal_name: str) -> None:
 def _author_class(entry: dict, prof: dict | None, prof_name: str,
                   sandbox: str, feed: bool = True) -> int:
     """Write one catalog class in full 101 depth, grounded in materials +
-    syllabus, on the bulk (cheap) tier. Board card only for active modules."""
+    syllabus. Hybrid quality: the module you're ACTIVELY on is written by the
+    premium model; the rest of the catalog uses the cheap tier. Every lesson
+    gets a self-review pass. Board card only for active modules."""
     methodology = (prof or {}).get("methodology") or dict(db.DEFAULT_METHODOLOGY)
+    tier = "main" if entry.get("module_status") == "active" else "bulk"
     provider = metered(build_provider(store.get_connector()),
-                       (prof or {}).get("id", "professor"), "author class",
-                       tier="bulk")
+                       (prof or {}).get("id", "professor"), "author class", tier=tier)
     context, refs = db.materials_context(entry["subject_id"], entry["topic"])
     topics = db.module_topics(entry["module_id"])
     lesson = professor.design_lesson(
         provider, subject=entry["subject_title"], topic=entry["topic"],
         professor=prof_name, methodology=methodology, sandbox=sandbox,
-        materials=context, syllabus_topics=topics, depth="full")
+        materials=context, syllabus_topics=topics, depth="full", refine=True)
     lesson["refs"] = refs
     lesson_id = db.add_lesson(lesson, subject_id=entry["subject_id"],
                               board_card=(entry.get("module_status") == "active"),
